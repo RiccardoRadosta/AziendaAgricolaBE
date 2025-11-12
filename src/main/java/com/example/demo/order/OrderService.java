@@ -1,8 +1,7 @@
 package com.example.demo.order;
 
 import org.springframework.stereotype.Service;
-
-import java.util.List;
+import java.time.ZonedDateTime;
 
 @Service
 public class OrderService {
@@ -13,11 +12,29 @@ public class OrderService {
         this.orderRepository = orderRepository;
     }
 
-    public List<Order> getOrders() {
-        return orderRepository.findAll();
-    }
+    // UNICA implementazione del metodo createOrder
+    public void createOrder(OrderDTO orderDTO) {
+        Order orderEntity = new Order();
 
-    public Order createOrder(Order order) {
-        return orderRepository.save(order);
+        // Mappatura corretta da DTO a Entità
+        orderEntity.setFullName(orderDTO.getFullName());
+        orderEntity.setEmail(orderDTO.getEmail());
+        orderEntity.setPhone(orderDTO.getPhone());
+        orderEntity.setAddress(orderDTO.getAddress());
+        orderEntity.setCity(orderDTO.getCity());
+        orderEntity.setProvince(orderDTO.getProvince());
+        orderEntity.setPostalCode(orderDTO.getPostalCode());
+        orderEntity.setCountry(orderDTO.getCountry());
+        orderEntity.setNewsletterSubscribed(orderDTO.isNewsletterSubscribed());
+        orderEntity.setOrderNotes(orderDTO.getOrderNotes());
+        orderEntity.setItems(orderDTO.getItems());
+        orderEntity.setSubtotal(orderDTO.getSubtotal());
+
+        // Dati gestiti dal server
+        orderEntity.setOrderDate(ZonedDateTime.now());
+        orderEntity.setOrderStatus(2); // 2 = ordinato/in preparazione
+
+        // Salvataggio nel database
+        orderRepository.save(orderEntity);
     }
 }

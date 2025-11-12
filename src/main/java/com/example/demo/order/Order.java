@@ -1,29 +1,43 @@
 package com.example.demo.order;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import java.time.ZonedDateTime;
 
 @Entity
 @Table(name = "customer_order")
 public class Order {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // Customer Details
+    private String fullName;
+    private String email;
+    private String phone;
     private String address;
-    private String products;
-    private String payment;
+    private String city;
+    private String province;
+    private String postalCode;
+    private String country;
+    private boolean newsletterSubscribed;
+    @Column(columnDefinition = "TEXT")
+    private String orderNotes;
+
+    // Order Details
+    @Column(columnDefinition = "TEXT")
+    private String items;
+    private double subtotal;
+    private ZonedDateTime orderDate;
+
+    // Order Status
+    // 0 = consegnato, 1 = spedito, 2 = ordinato/in preparazione
+    private int orderStatus;
 
     public Order() {
     }
 
-    public Order(String address, String products, String payment) {
-        this.address = address;
-        this.products = products;
-        this.payment = payment;
-    }
+    // Getters and Setters
 
     public Long getId() {
         return id;
@@ -31,6 +45,30 @@ public class Order {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getAddress() {
@@ -41,19 +79,83 @@ public class Order {
         this.address = address;
     }
 
-    public String getProducts() {
-        return products;
+    public String getCity() {
+        return city;
     }
 
-    public void setProducts(String products) {
-        this.products = products;
+    public void setCity(String city) {
+        this.city = city;
     }
 
-    public String getPayment() {
-        return payment;
+    public String getProvince() {
+        return province;
     }
 
-    public void setPayment(String payment) {
-        this.payment = payment;
+    public void setProvince(String province) {
+        this.province = province;
+    }
+
+    public String getPostalCode() {
+        return postalCode;
+    }
+
+    public void setPostalCode(String postalCode) {
+        this.postalCode = postalCode;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public boolean isNewsletterSubscribed() {
+        return newsletterSubscribed;
+    }
+
+    public void setNewsletterSubscribed(boolean newsletterSubscribed) {
+        this.newsletterSubscribed = newsletterSubscribed;
+    }
+
+    public String getOrderNotes() {
+        return orderNotes;
+    }
+
+    public void setOrderNotes(String orderNotes) {
+        this.orderNotes = orderNotes;
+    }
+
+    public String getItems() {
+        return items;
+    }
+
+    public void setItems(String items) {
+        this.items = items;
+    }
+
+    public double getSubtotal() {
+        return subtotal;
+    }
+
+    public void setSubtotal(double subtotal) {
+        this.subtotal = subtotal;
+    }
+
+    public ZonedDateTime getOrderDate() {
+        return orderDate;
+    }
+
+    public void setOrderDate(ZonedDateTime orderDate) {
+        this.orderDate = orderDate;
+    }
+
+    public int getOrderStatus() {
+        return orderStatus;
+    }
+
+    public void setOrderStatus(int orderStatus) {
+        this.orderStatus = orderStatus;
     }
 }

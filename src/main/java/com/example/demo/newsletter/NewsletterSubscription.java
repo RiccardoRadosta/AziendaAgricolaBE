@@ -4,6 +4,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 
+import java.time.ZonedDateTime;
+
 @Entity
 public class NewsletterSubscription {
 
@@ -11,14 +13,14 @@ public class NewsletterSubscription {
     @GeneratedValue
     private Long id;
     private String email;
-    private boolean subscribed;
+    private ZonedDateTime subscribedAt;
 
     public NewsletterSubscription() {
     }
 
-    public NewsletterSubscription(String email, boolean subscribed) {
+    public NewsletterSubscription(String email, ZonedDateTime subscribedAt) {
         this.email = email;
-        this.subscribed = subscribed;
+        this.subscribedAt = subscribedAt;
     }
 
     public Long getId() {
@@ -37,11 +39,11 @@ public class NewsletterSubscription {
         this.email = email;
     }
 
-    public boolean isSubscribed() {
-        return subscribed;
+    public ZonedDateTime getSubscribedAt() {
+        return subscribedAt;
     }
 
-    public void setSubscribed(boolean subscribed) {
-        this.subscribed = subscribed;
+    public void setSubscribedAt(ZonedDateTime subscribedAt) {
+        this.subscribedAt = subscribedAt;
     }
 }
