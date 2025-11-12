@@ -1,17 +1,10 @@
 package com.example.demo.newsletter;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-
 import java.time.ZonedDateTime;
 
-@Entity
 public class NewsletterSubscription {
 
-    @Id
-    @GeneratedValue
-    private Long id;
+    private String id; // Changed from Long to String for Firestore
     private String email;
     private ZonedDateTime subscribedAt;
 
@@ -23,11 +16,11 @@ public class NewsletterSubscription {
         this.subscribedAt = subscribedAt;
     }
 
-    public Long getId() {
+    public String getId() { // Changed from Long to String
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) { // Changed from Long to String
         this.id = id;
     }
 

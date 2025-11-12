@@ -1,40 +1,43 @@
 package com.example.demo.order;
 
+import com.google.cloud.firestore.Firestore;
 import org.springframework.stereotype.Service;
+
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
 @Service
 public class OrderService {
 
-    private final OrderRepository orderRepository;
+    private final Firestore firestore;
 
-    public OrderService(OrderRepository orderRepository) {
-        this.orderRepository = orderRepository;
+    public OrderService(Firestore firestore) {
+        this.firestore = firestore;
     }
 
-    // UNICA implementazione del metodo createOrder
     public void createOrder(OrderDTO orderDTO) {
-        Order orderEntity = new Order();
+        Order order = new Order();
 
-        // Mappatura corretta da DTO a Entità
-        orderEntity.setFullName(orderDTO.getFullName());
-        orderEntity.setEmail(orderDTO.getEmail());
-        orderEntity.setPhone(orderDTO.getPhone());
-        orderEntity.setAddress(orderDTO.getAddress());
-        orderEntity.setCity(orderDTO.getCity());
-        orderEntity.setProvince(orderDTO.getProvince());
-        orderEntity.setPostalCode(orderDTO.getPostalCode());
-        orderEntity.setCountry(orderDTO.getCountry());
-        orderEntity.setNewsletterSubscribed(orderDTO.isNewsletterSubscribed());
-        orderEntity.setOrderNotes(orderDTO.getOrderNotes());
-        orderEntity.setItems(orderDTO.getItems());
-        orderEntity.setSubtotal(orderDTO.getSubtotal());
+        // --- DTO to Model Mapping ---
+        order.setFullName(orderDTO.getFullName());
+        order.setEmail(orderDTO.getEmail());
+        order.setPhone(orderDTO.getPhone());
+        order.setAddress(orderDTO.getAddress());
+        order.setCity(orderDTO.getCity());
+        order.setProvince(orderDTO.getProvince());
+        order.setPostalCode(orderDTO.getPostalCode());
+        order.setCountry(orderDTO.getCountry());
+        order.setNewsletterSubscribed(orderDTO.isNewsletterSubscribed());
+        order.setOrderNotes(orderDTO.getOrderNotes());
+        order.setItems(orderDTO.getItems());
+        order.setSubtotal(orderDTO.getSubtotal());
 
-        // Dati gestiti dal server
-        orderEntity.setOrderDate(ZonedDateTime.now());
-        orderEntity.setOrderStatus(2); // 2 = ordinato/in preparazione
+        // --- Server-Managed Data ---
+        order.setOrderDate(ZonedDateTime.now());
+        order.setOrderStatus(2); // 2 = ordinato/in preparazione
+        order.setId(UUID.randomUUID().toString()); // Generate a unique ID
 
-        // Salvataggio nel database
-        orderRepository.save(orderEntity);
+        // --- Save to Firestore ---
+        firestore.collection("orders").document(order.getId()).set(order);
     }
 }

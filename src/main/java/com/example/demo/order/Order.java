@@ -1,15 +1,10 @@
 package com.example.demo.order;
 
-import jakarta.persistence.*;
 import java.time.ZonedDateTime;
 
-@Entity
-@Table(name = "customer_order")
 public class Order {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id; // Changed from Long to String for Firestore
 
     // Customer Details
     private String fullName;
@@ -21,11 +16,9 @@ public class Order {
     private String postalCode;
     private String country;
     private boolean newsletterSubscribed;
-    @Column(columnDefinition = "TEXT")
     private String orderNotes;
 
     // Order Details
-    @Column(columnDefinition = "TEXT")
     private String items;
     private double subtotal;
     private ZonedDateTime orderDate;
@@ -39,11 +32,11 @@ public class Order {
 
     // Getters and Setters
 
-    public Long getId() {
+    public String getId() { // Changed from Long to String
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) { // Changed from Long to String
         this.id = id;
     }
 
