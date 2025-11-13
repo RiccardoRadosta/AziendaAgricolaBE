@@ -26,21 +26,20 @@ public class OrderController {
     @PostMapping("/charge")
     public ResponseEntity<Map<String, String>> chargeOrder(@RequestBody OrderDTO orderDTO) {
         try {
-            // Logica di pagamento moderna ed esplicita per Stripe
+            // Logica di pagamento finale che soddisfa tutti i requisiti di Stripe
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount((long) (orderDTO.getSubtotal() * 100))
                     .setCurrency("eur")
                     .setPaymentMethod(orderDTO.getPaymentToken())
-                    // Diciamo a Stripe di usare i suoi metodi di pagamento automatici,
-                    // ma di non usare MAI metodi che richiedono un re-indirizzamento.
-                    // Questo forza l'uso del modale per il 3D Secure.
+                    // Usiamo la configurazione moderna richiesta da Stripe
                     .setAutomaticPaymentMethods(
                         PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                             .setEnabled(true)
-                            .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
                             .build()
                     )
-                    .setConfirm(true) // Confermiamo subito
+                    // Forniamo il return_url obbligatorio quando i pagamenti automatici sono attivi
+                    .setReturnUrl("http://localhost:3000/payment-confirmation")
+                    .setConfirm(true)
                     .build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(params);
