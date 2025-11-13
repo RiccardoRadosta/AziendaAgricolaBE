@@ -26,13 +26,8 @@ public class OrderController {
     @PostMapping("/charge")
     public ResponseEntity<Map<String, String>> chargeOrder(@RequestBody OrderDTO orderDTO) {
         try {
-            // The frontend is responsible for confirming the PaymentIntent.
-            // The backend's role is now to CREATE the intent with the correct parameters
-            // and return the client_secret to the frontend.
-
             PaymentIntentCreateParams.PaymentMethodOptions.Card cardOptions = 
                 PaymentIntentCreateParams.PaymentMethodOptions.Card.builder()
-                    // This remains the crucial parameter to force the 3DS flow.
                     .setRequestThreeDSecure(PaymentIntentCreateParams.PaymentMethodOptions.Card.RequestThreeDSecure.ANY)
                     .build();
 
@@ -44,16 +39,18 @@ public class OrderController {
             PaymentIntentCreateParams createParams = PaymentIntentCreateParams.builder()
                     .setAmount((long) (orderDTO.getSubtotal() * 100))
                     .setCurrency("eur")
-                    // We do not set the payment method here anymore, the client will provide it during confirmation.
-                    // .setPaymentMethod(orderDTO.getPaymentToken()) 
+                    // The frontend will confirm, so we only create the intent here.
                     .setPaymentMethodOptions(paymentMethodOptions)
+                    // We also associate the payment method upon creation now
+                    .setPaymentMethod(orderDTO.getPaymentToken())
                     .build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(createParams);
 
-            // We simply return the client secret. The frontend will use this to call
-            // stripe.confirmCardPayment(), which will handle the 3DS modal.
+            // The frontend expects both the clientSecret AND the status to decide its next action.
+            // We restore the status field to the response.
             Map<String, String> response = new HashMap<>();
+            response.put("status", "requires_action"); // This was the missing piece.
             response.put("clientSecret", paymentIntent.getClientSecret());
             return ResponseEntity.ok(response);
 
