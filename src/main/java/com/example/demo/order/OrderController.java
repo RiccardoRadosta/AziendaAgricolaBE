@@ -34,6 +34,8 @@ public class OrderController {
                     .setConfirmationMethod(PaymentIntentCreateParams.ConfirmationMethod.AUTOMATIC)
                     // Conferma il pagamento immediatamente
                     .setConfirm(true)
+                    // OBBLIGATORIO: Fornisci un return_url come richiesto da Stripe per i flussi di pagamento automatici
+                    .setReturnUrl("http://localhost:3000/payment-confirmation")
                     .build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(params);
@@ -51,7 +53,6 @@ public class OrderController {
                 return ResponseEntity.ok(response);
 
             } else {
-                 // Questo blocco ora non dovrebbe essere quasi mai raggiunto
                 Map<String, String> response = new HashMap<>();
                 response.put("error", "Stato del pagamento non valido: " + paymentIntent.getStatus());
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
