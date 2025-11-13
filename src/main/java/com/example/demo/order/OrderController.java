@@ -2,6 +2,7 @@ package com.example.demo.order;
 
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
+import com.stripe.param.PaymentIntentConfirmParams;
 import com.stripe.param.PaymentIntentCreateParams;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,24 +27,26 @@ public class OrderController {
     @PostMapping("/charge")
     public ResponseEntity<Map<String, String>> chargeOrder(@RequestBody OrderDTO orderDTO) {
         try {
-            // Logica di pagamento finale che soddisfa tutti i requisiti di Stripe
-            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+            // Step 1: Create the PaymentIntent without confirming it.
+            // This attaches the payment method and sets the amount.
+            PaymentIntentCreateParams createParams = PaymentIntentCreateParams.builder()
                     .setAmount((long) (orderDTO.getSubtotal() * 100))
                     .setCurrency("eur")
                     .setPaymentMethod(orderDTO.getPaymentToken())
-                    // Usiamo la configurazione moderna richiesta da Stripe
-                    .setAutomaticPaymentMethods(
-                        PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
-                            .setEnabled(true)
-                            .build()
-                    )
-                    // Forniamo il return_url obbligatorio quando i pagamenti automatici sono attivi
-                    .setReturnUrl("http://localhost:3000/payment-confirmation")
-                    .setConfirm(true)
                     .build();
 
-            PaymentIntent paymentIntent = PaymentIntent.create(params);
+            PaymentIntent paymentIntent = PaymentIntent.create(createParams);
 
+            // Step 2: Confirm the PaymentIntent.
+            // This is where we provide the return_url for authentication redirects.
+            PaymentIntentConfirmParams confirmParams = PaymentIntentConfirmParams.builder()
+                    .setReturnUrl("http://localhost:3000/payment-confirmation")
+                    .build();
+
+            paymentIntent = paymentIntent.confirm(confirmParams);
+
+
+            // Step 3: Handle the result of the confirmation.
             if ("succeeded".equals(paymentIntent.getStatus())) {
                 orderService.createOrder(orderDTO);
                 Map<String, String> response = new HashMap<>();
@@ -63,8 +66,9 @@ public class OrderController {
             }
 
         } catch (StripeException e) {
+            // If the card is declined, a StripeException is thrown by .confirm()
             Map<String, String> response = new HashMap<>();
-            response.put("error", e.getLocalizedMessage());
+            response.put("error", e.getLocalizedMessage()); // e.g., "Your card was declined."
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         }
     }
