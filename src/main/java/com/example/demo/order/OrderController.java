@@ -30,7 +30,10 @@ public class OrderController {
                     .setAmount((long) (orderDTO.getSubtotal() * 100))
                     .setCurrency("eur")
                     .setPaymentMethod(orderDTO.getPaymentToken())
+                    // Usa la conferma automatica per gestire il 3D Secure
                     .setConfirmationMethod(PaymentIntentCreateParams.ConfirmationMethod.AUTOMATIC)
+                    // Conferma il pagamento immediatamente
+                    .setConfirm(true)
                     .build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(params);
@@ -48,6 +51,7 @@ public class OrderController {
                 return ResponseEntity.ok(response);
 
             } else {
+                 // Questo blocco ora non dovrebbe essere quasi mai raggiunto
                 Map<String, String> response = new HashMap<>();
                 response.put("error", "Stato del pagamento non valido: " + paymentIntent.getStatus());
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
