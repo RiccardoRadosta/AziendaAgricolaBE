@@ -19,6 +19,9 @@ public class OrderDTO {
     private String items; // Es. JSON o stringa formattata con i prodotti
     private double subtotal;
 
+    // Dati di pagamento
+    private String paymentToken;
+
     // Getters per tutti i campi (necessari per la deserializzazione JSON)
 
     public String getFullName() { return fullName; }
@@ -33,4 +36,5 @@ public class OrderDTO {
     public String getOrderNotes() { return orderNotes; }
     public String getItems() { return items; }
     public double getSubtotal() { return subtotal; }
+    public String getPaymentToken() { return paymentToken; }
 }

@@ -30,6 +30,14 @@
       <artifactId>firebase-admin</artifactId>
       <version>9.2.0</version>
     </dependency>
+
+    <!-- Stripe Dependency -->
+    <dependency>
+        <groupId>com.stripe</groupId>
+        <artifactId>stripe-java</artifactId>
+        <version>24.18.0</version>
+    </dependency>
+
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-devtools</artifactId>
