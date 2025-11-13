@@ -46,7 +46,9 @@ public class OrderController {
             PaymentIntent paymentIntent = PaymentIntent.create(createParams);
 
             Map<String, String> response = new HashMap<>();
-            response.put("status", "requires_action");
+            // Use the real status from the PaymentIntent, not a hardcoded value.
+            // This correctly informs the frontend if 3DS is truly required.
+            response.put("status", paymentIntent.getStatus());
             response.put("clientSecret", paymentIntent.getClientSecret());
             return ResponseEntity.ok(response);
 
