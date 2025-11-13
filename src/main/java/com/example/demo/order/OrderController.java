@@ -36,6 +36,7 @@ public class OrderController {
                     .setCard(cardOptions)
                     .build();
 
+            // CORRECT FLOW: Just create the intent. The frontend will handle the confirmation.
             PaymentIntentCreateParams createParams = PaymentIntentCreateParams.builder()
                     .setAmount((long) (orderDTO.getSubtotal() * 100))
                     .setCurrency("eur")
@@ -46,8 +47,6 @@ public class OrderController {
             PaymentIntent paymentIntent = PaymentIntent.create(createParams);
 
             Map<String, String> response = new HashMap<>();
-            // Use the real status from the PaymentIntent, not a hardcoded value.
-            // This correctly informs the frontend if 3DS is truly required.
             response.put("status", paymentIntent.getStatus());
             response.put("clientSecret", paymentIntent.getClientSecret());
             return ResponseEntity.ok(response);
