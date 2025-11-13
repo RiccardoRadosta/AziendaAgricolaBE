@@ -39,18 +39,14 @@ public class OrderController {
             PaymentIntentCreateParams createParams = PaymentIntentCreateParams.builder()
                     .setAmount((long) (orderDTO.getSubtotal() * 100))
                     .setCurrency("eur")
-                    // The frontend will confirm, so we only create the intent here.
                     .setPaymentMethodOptions(paymentMethodOptions)
-                    // We also associate the payment method upon creation now
                     .setPaymentMethod(orderDTO.getPaymentToken())
                     .build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(createParams);
 
-            // The frontend expects both the clientSecret AND the status to decide its next action.
-            // We restore the status field to the response.
             Map<String, String> response = new HashMap<>();
-            response.put("status", "requires_action"); // This was the missing piece.
+            response.put("status", "requires_action");
             response.put("clientSecret", paymentIntent.getClientSecret());
             return ResponseEntity.ok(response);
 
@@ -60,6 +56,20 @@ public class OrderController {
             response.put("code", e.getCode());
             response.put("request-id", e.getRequestId());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    @PostMapping("/create")
+    public ResponseEntity<Map<String, String>> createOrder(@RequestBody OrderDTO orderDTO) {
+        try {
+            orderService.createOrder(orderDTO);
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "order_created_successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> response = new HashMap<>();
+            response.put("error", "Failed to create order in database: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 }
