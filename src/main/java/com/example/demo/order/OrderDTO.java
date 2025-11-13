@@ -22,8 +22,7 @@ public class OrderDTO {
     // Dati di pagamento
     private String paymentToken;
 
-    // Getters per tutti i campi (necessari per la deserializzazione JSON)
-
+    // Getters (necessari per la serializzazione JSON)
     public String getFullName() { return fullName; }
     public String getEmail() { return email; }
     public String getPhone() { return phone; }
@@ -37,4 +36,19 @@ public class OrderDTO {
     public String getItems() { return items; }
     public double getSubtotal() { return subtotal; }
     public String getPaymentToken() { return paymentToken; }
+
+    // Setters (FONDAMENTALI per la deserializzazione JSON da parte di Spring/Jackson)
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public void setEmail(String email) { this.email = email; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public void setAddress(String address) { this.address = address; }
+    public void setCity(String city) { this.city = city; }
+    public void setProvince(String province) { this.province = province; }
+    public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
+    public void setCountry(String country) { this.country = country; }
+    public void setNewsletterSubscribed(boolean newsletterSubscribed) { this.newsletterSubscribed = newsletterSubscribed; }
+    public void setOrderNotes(String orderNotes) { this.orderNotes = orderNotes; }
+    public void setItems(String items) { this.items = items; }
+    public void setSubtotal(double subtotal) { this.subtotal = subtotal; }
+    public void setPaymentToken(String paymentToken) { this.paymentToken = paymentToken; }
 }
