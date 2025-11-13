@@ -23,57 +23,51 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<Map<String, String>> createOrder(@RequestBody OrderDTO orderDTO) {
-        orderService.createOrder(orderDTO);
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "Order created successfully");
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
     @PostMapping("/charge")
     public ResponseEntity<Map<String, String>> chargeOrder(@RequestBody OrderDTO orderDTO) {
         try {
-            // 1. Create parameters for the charge on Stripe
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount((long) (orderDTO.getSubtotal() * 100))
                     .setCurrency("eur")
+                    // Usa il token della carta (es. pm_...)
                     .setPaymentMethod(orderDTO.getPaymentToken())
-                    .setConfirmationMethod(PaymentIntentCreateParams.ConfirmationMethod.MANUAL)
-                    .setConfirm(true)
-                    // ADDED: Stripe requires a return_url for redirect-based payment methods
-                    .setReturnUrl("http://localhost:3000/payment-confirmation")
+                    // Lascia che Stripe gestisca il flusso di conferma.
+                    // Se serve il 3D Secure, lo stato sarà 'requires_action'.
+                    // Altrimenti, proverà a completare il pagamento direttamente.
+                    .setConfirmationMethod(PaymentIntentCreateParams.ConfirmationMethod.AUTOMATIC)
+                    // OBBLIGATORIO: URL a cui Stripe può reindirizzare l'utente dopo l'autenticazione fuori sito
+                    .setReturnUrl("http://localhost:3000/payment-confirmation") 
                     .build();
 
-            // 2. Create and confirm the PaymentIntent
             PaymentIntent paymentIntent = PaymentIntent.create(params);
 
-            // 3. Handle the response from Stripe
+            // Gestisci la risposta di Stripe
             if ("succeeded".equals(paymentIntent.getStatus())) {
-                // CASE 1: Payment is successful immediately
+                // CASO 1: Pagamento riuscito subito (es. carta senza 3DS)
                 orderService.createOrder(orderDTO);
                 Map<String, String> response = new HashMap<>();
                 response.put("status", "succeeded");
                 return ResponseEntity.ok(response);
 
             } else if ("requires_action".equals(paymentIntent.getStatus())) {
-                // CASE 2: Payment requires 3D Secure authentication
+                // CASO 2: Richiesta autenticazione 3D Secure
                 Map<String, String> response = new HashMap<>();
                 response.put("status", "requires_action");
                 response.put("clientSecret", paymentIntent.getClientSecret());
-                return ResponseEntity.ok(response); // Return 200 OK for the frontend to handle
+                // L'ordine NON viene salvato qui. Sarà salvato dal frontend dopo la conferma.
+                return ResponseEntity.ok(response);
 
             } else {
-                 // Other statuses (e.g., requires_payment_method, canceled)
+                // Altri stati non gestiti (es. requires_payment_method, canceled)
                 Map<String, String> response = new HashMap<>();
-                response.put("error", "Invalid payment intent status");
+                response.put("error", "Stato del pagamento non valido: " + paymentIntent.getStatus());
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
 
         } catch (StripeException e) {
-            // CASE 3: An error occurred (e.g., card declined)
+            // CASO 3: Errore API da Stripe (es. carta rifiutata)
             Map<String, String> response = new HashMap<>();
-            response.put("error", e.getMessage());
+            response.put("error", e.getLocalizedMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         }
     }
