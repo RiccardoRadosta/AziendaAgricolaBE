@@ -26,44 +26,36 @@ public class OrderController {
     @PostMapping("/charge")
     public ResponseEntity<Map<String, String>> chargeOrder(@RequestBody OrderDTO orderDTO) {
         try {
-            // We are re-adopting the modern, single-call approach.
-            // It's more robust for handling different authentication flows.
+            // The frontend is responsible for confirming the PaymentIntent.
+            // The backend's role is now to CREATE the intent with the correct parameters
+            // and return the client_secret to the frontend.
+
+            PaymentIntentCreateParams.PaymentMethodOptions.Card cardOptions = 
+                PaymentIntentCreateParams.PaymentMethodOptions.Card.builder()
+                    // This remains the crucial parameter to force the 3DS flow.
+                    .setRequestThreeDSecure(PaymentIntentCreateParams.PaymentMethodOptions.Card.RequestThreeDSecure.ANY)
+                    .build();
+
+            PaymentIntentCreateParams.PaymentMethodOptions paymentMethodOptions = 
+                PaymentIntentCreateParams.PaymentMethodOptions.builder()
+                    .setCard(cardOptions)
+                    .build();
+
             PaymentIntentCreateParams createParams = PaymentIntentCreateParams.builder()
                     .setAmount((long) (orderDTO.getSubtotal() * 100))
                     .setCurrency("eur")
-                    .setPaymentMethod(orderDTO.getPaymentToken())
-                    // We tell Stripe to attempt confirmation immediately.
-                    .setConfirm(true)
-                    // CRUCIAL: We specify 'manual' confirmation.
-                    // This tells Stripe that if authentication is required, we want to handle the
-                    // next step on the client-side using the returned client_secret.
-                    // This is the key to correctly triggering the 3D Secure flow without a 'card_declined' error.
-                    .setConfirmationMethod(PaymentIntentCreateParams.ConfirmationMethod.MANUAL)
-                    // The return_url is still mandatory for redirect-based authentications like 3D Secure.
-                    .setReturnUrl("http://localhost:3000/payment-confirmation")
+                    // We do not set the payment method here anymore, the client will provide it during confirmation.
+                    // .setPaymentMethod(orderDTO.getPaymentToken()) 
+                    .setPaymentMethodOptions(paymentMethodOptions)
                     .build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(createParams);
 
-            // Handle the response from the single, unified API call
-            if ("succeeded".equals(paymentIntent.getStatus())) {
-                orderService.createOrder(orderDTO);
-                Map<String, String> response = new HashMap<>();
-                response.put("status", "succeeded");
-                return ResponseEntity.ok(response);
-
-            } else if ("requires_action".equals(paymentIntent.getStatus())) {
-                // This is the flow we expect for the 3D Secure card.
-                Map<String, String> response = new HashMap<>();
-                response.put("status", "requires_action");
-                response.put("clientSecret", paymentIntent.getClientSecret());
-                return ResponseEntity.ok(response);
-
-            } else {
-                Map<String, String> response = new HashMap<>();
-                response.put("error", "Invalid payment intent status: " + paymentIntent.getStatus());
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-            }
+            // We simply return the client secret. The frontend will use this to call
+            // stripe.confirmCardPayment(), which will handle the 3DS modal.
+            Map<String, String> response = new HashMap<>();
+            response.put("clientSecret", paymentIntent.getClientSecret());
+            return ResponseEntity.ok(response);
 
         } catch (StripeException e) {
             Map<String, String> response = new HashMap<>();
