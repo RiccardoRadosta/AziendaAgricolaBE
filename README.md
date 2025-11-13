@@ -6,7 +6,7 @@ Questa è un'applicazione backend basata su Java e il framework Spring Boot, pro
 
 ### Funzionalità Principali
 
-1.  **Gestione Pagamenti e Ordini:** Riceve i dettagli di un ordine e un token di pagamento sicuro da Stripe, processa l'addebito e, solo in caso di successo, salva l'ordine su un database.
+1.  **Gestione Pagamenti e Ordini:** Riceve i dettagli di un ordine e un token di pagamento sicuro da Stripe, processa l'addebito e, solo in caso di successo, salva l'ordine su un database. Gestisce i flussi di autenticazione sicura (3D Secure).
 2.  **Iscrizione Newsletter:** Salva l'email di un utente nel database per future comunicazioni.
 
 ---
@@ -15,74 +15,74 @@ Questa è un'applicazione backend basata su Java e il framework Spring Boot, pro
 
 Prima di avviare l'applicazione, è necessario configurare la propria chiave segreta di Stripe.
 
-1.  Crea un account di test su [Stripe](https://dashboard.stripe.com/register).
-2.  Trova la tua **chiave segreta** (Secret Key) nella sezione "Sviluppatori" > "Chiavi API".
-3.  Apri il file `src/main/resources/application.properties`.
-4.  Aggiungi o modifica la seguente riga, incollando la tua chiave:
-    ```properties
-    stripe.secret.key=sk_test_xxxxxxxxxxxxxxxxxxxx
-    ```
+1.  **Clona il repository.**
+2.  **Apri il file `src/main/resources/application.properties`:**
+3.  Trova la riga `#stripe.secret.key=`
+4.  Rimuovi il commento (`#`) e incolla la tua chiave segreta di Stripe (es. `sk_test_...`).
+5.  **Importante:** Questo file non deve essere "committato" con la chiave al suo interno.
 
----
+## Avvio dell'Applicazione
 
-## Guida all'Avvio e al Test
-
-Per testare l'applicazione, è necessario avviare il server.
+Puoi avviare il server usando il Maven Wrapper incluso:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Questo comando avvierà l'applicazione sulla porta `8080`.
+Il server sarà in ascolto sulla porta `8080`.
 
 ---
 
-## Documentazione API (Endpoint per il Frontend)
+## API Endpoints
 
-Una volta che il server è in esecuzione, i seguenti endpoint saranno disponibili.
+L'applicazione espone i seguenti endpoint REST:
 
 ### 1. Processare un Pagamento e Creare un Ordine
 
-Questo endpoint è il cuore del sistema di checkout. Utilizza Stripe per un pagamento sicuro.
-
 -   **URL:** `http://localhost:8080/api/orders/charge`
 -   **Metodo HTTP:** `POST`
--   **Headers:** `Content-Type: application/json`
--   **Logica:** Il frontend deve prima creare un `PaymentMethod` usando Stripe.js. L'ID di questo `PaymentMethod` (`pm_...`) va inviato nel campo `paymentToken`.
-
 -   **Corpo della Richiesta (Payload JSON):**
-
+    Il payload deve contenere i dettagli del cliente, dell'ordine e il `paymentToken` generato da Stripe.js nel frontend.
     ```json
     {
-        "fullName": "Mario Rossi",
-        "email": "mario.rossi@example.com",
-        "phone": "3331234567",
-        "address": "Via Roma 10",
-        "city": "Milano",
-        "province": "MI",
-        "postalCode": "20121",
-        "country": "Italia",
+        "fullName": "...",
+        "email": "...",
+        "phone": "...",
+        "address": "...",
+        "city": "...",
+        "province": "...",
+        "postalCode": "...",
+        "country": "...",
         "newsletterSubscribed": true,
-        "orderNotes": "Consegnare al portiere.",
-        "items": "[{\"productName\": \"T-Shirt Nera\"}]",
-        "subtotal": 89.99,
-        "paymentToken": "pm_xxxxxxxxxxxxxx" 
+        "orderNotes": "...",
+        "items": "[{\"name\":\"Prodotto 1\",\"quantity\":2}]",
+        "subtotal": 50.00,
+        "paymentToken": "pm_xxxxxxxxxxxx"
     }
     ```
 
--   **Risposta di Successo (HTTP 200 OK):** Indica che il pagamento è riuscito e l'ordine è stato salvato.
+#### Risposte dell'Endpoint `/charge`
 
+-   **Risposta di Successo Immediato (HTTP 200 OK):** Indica che il pagamento è stato processato con successo senza ulteriori autenticazioni. L'ordine è stato salvato.
     ```json
     {
-        "status": "Payment successful and order created"
+        "status": "succeeded"
     }
     ```
+
+-   **Risposta per Autenticazione Aggiuntiva (HTTP 200 OK):** Indica che il pagamento richiede un'azione da parte dell'utente (es. 3D Secure).
+    ```json
+    {
+        "status": "requires_action",
+        "clientSecret": "pi_xxxxxxxxxxxx_secret_xxxxxxxx"
+    }
+    ```
+    Il frontend deve usare il `clientSecret` con Stripe.js per completare l'autenticazione.
 
 -   **Risposta di Errore (HTTP 400 Bad Request):** Indica che il pagamento è fallito (es. carta rifiutata). L'ordine non è stato salvato.
-
     ```json
     {
-        "status": "Your card was declined."
+        "error": "Your card was declined."
     }
     ```
 
@@ -91,7 +91,6 @@ Questo endpoint è il cuore del sistema di checkout. Utilizza Stripe per un paga
 -   **URL:** `http://localhost:8080/api/newsletter/subscribe`
 -   **Metodo HTTP:** `POST`
 -   **Corpo della Richiesta (Payload JSON):**
-
     ```json
     {
         "email": "nuovo.iscritto@email.com"
@@ -99,7 +98,6 @@ Questo endpoint è il cuore del sistema di checkout. Utilizza Stripe per un paga
     ```
 
 -   **Risposta di Successo (HTTP 200 OK):**
-
     ```json
     {
         "message": "Subscription successful!"
