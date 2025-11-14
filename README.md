@@ -6,7 +6,7 @@ Questa è un'applicazione backend basata su Java e il framework Spring Boot, pro
 
 ### Funzionalità Principali
 
-1.  **Gestione Pagamenti e Ordini:** Riceve i dettagli di un ordine e un token di pagamento sicuro da Stripe, processa l'addebito e, solo in caso di successo, salva l'ordine su un database. Gestisce i flussi di autenticazione sicura (3D Secure).
+1.  **Gestione Pagamenti e Ordini:** Riceve i dettagli di un ordine e un token di pagamento sicuro da Stripe, crea un `PaymentIntent` e restituisce lo stato al frontend per la conferma finale. Gestisce i flussi di autenticazione sicura (3D Secure).
 2.  **Iscrizione Newsletter:** Salva l'email di un utente nel database per future comunicazioni.
 
 ---
@@ -37,56 +37,48 @@ Il server sarà in ascolto sulla porta `8080`.
 
 L'applicazione espone i seguenti endpoint REST:
 
-### 1. Processare un Pagamento e Creare un Ordine
+### 1. Creare un Intento di Pagamento
+
+Questo endpoint crea un `PaymentIntent` di Stripe e restituisce il suo `clientSecret` e il suo stato iniziale al frontend. **Non finalizza il pagamento.**
 
 -   **URL:** `http://localhost:8080/api/orders/charge`
 -   **Metodo HTTP:** `POST`
 -   **Corpo della Richiesta (Payload JSON):**
-    Il payload deve contenere i dettagli del cliente, dell'ordine e il `paymentToken` generato da Stripe.js nel frontend.
     ```json
     {
-        "fullName": "...",
-        "email": "...",
-        "phone": "...",
-        "address": "...",
-        "city": "...",
-        "province": "...",
-        "postalCode": "...",
-        "country": "...",
-        "newsletterSubscribed": true,
-        "orderNotes": "...",
-        "items": "[{\"name\":\"Prodotto 1\",\"quantity\":2}]",
-        "subtotal": 50.00,
-        "paymentToken": "pm_xxxxxxxxxxxx"
+        "subtotal": 28.00,
+        "paymentToken": "pm_xxxxxxxxxxxx",
+        // ...altri dati dell'ordine...
     }
     ```
 
-#### Risposte dell'Endpoint `/charge`
+#### Risposte Possibili
 
--   **Risposta di Successo Immediato (HTTP 200 OK):** Indica che il pagamento è stato processato con successo senza ulteriori autenticazioni. L'ordine è stato salvato.
+-   **Risposta di Successo (HTTP 200 OK):** Indica che l'intento è stato creato. Il frontend deve ora usare il `clientSecret` per confermare il pagamento con Stripe.js.
     ```json
     {
-        "status": "succeeded"
-    }
-    ```
-
--   **Risposta per Autenticazione Aggiuntiva (HTTP 200 OK):** Indica che il pagamento richiede un'azione da parte dell'utente (es. 3D Secure).
-    ```json
-    {
-        "status": "requires_action",
+        "status": "requires_confirmation",
         "clientSecret": "pi_xxxxxxxxxxxx_secret_xxxxxxxx"
     }
     ```
-    Il frontend deve usare il `clientSecret` con Stripe.js per completare l'autenticazione.
+    Il frontend **deve** usare questo `clientSecret` per chiamare la funzione `stripe.confirmCardPayment()` di Stripe.js, la quale gestirà l'eventuale autenticazione 3D Secure e finalizzerà il pagamento.
 
--   **Risposta di Errore (HTTP 400 Bad Request):** Indica che il pagamento è fallito (es. carta rifiutata). L'ordine non è stato salvato.
+-   **Risposta di Errore (HTTP 400 Bad Request):** Indica che c'è stato un problema durante la creazione dell'intento.
     ```json
     {
-        "error": "Your card was declined."
+        "error": "An error occurred with Stripe."
     }
     ```
 
-### 2. Iscriversi alla Newsletter
+### 2. Salvare un Ordine nel Database
+
+Questo endpoint dovrebbe essere chiamato dal frontend **solo dopo** che il pagamento è stato confermato con successo tramite Stripe.js.
+
+-   **URL:** `http://localhost:8080/api/orders/create`
+-   **Metodo HTTP:** `POST`
+-   **Corpo della Richiesta (Payload JSON):** Tutti i dati dell'ordine (indirizzo, prodotti, ecc.).
+
+### 3. Iscriversi alla Newsletter
 
 -   **URL:** `http://localhost:8080/api/newsletter/subscribe`
 -   **Metodo HTTP:** `POST`
