@@ -1,10 +1,15 @@
 package com.example.demo.order;
 
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.Query;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
 import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
@@ -13,6 +18,20 @@ public class OrderService {
 
     public OrderService(Firestore firestore) {
         this.firestore = firestore;
+    }
+
+    public List<Order> getAllOrders(Integer status) throws ExecutionException, InterruptedException {
+        Query query = firestore.collection("orders").orderBy("orderDate", Query.Direction.DESCENDING);
+
+        if (status != null) {
+            query = query.whereEqualTo("orderStatus", status);
+        }
+
+        List<QueryDocumentSnapshot> documents = query.get().get().getDocuments();
+
+        return documents.stream()
+                .map(doc -> doc.toObject(Order.class))
+                .collect(Collectors.toList());
     }
 
     public void createOrder(OrderDTO orderDTO) {
@@ -34,7 +53,7 @@ public class OrderService {
 
         // --- Server-Managed Data ---
         order.setOrderDate(ZonedDateTime.now());
-        order.setOrderStatus(2); // 2 = ordinato/in preparazione
+        order.setOrderStatus(0); // 0 = ordinato/in preparazione
         order.setId(UUID.randomUUID().toString()); // Generate a unique ID
 
         // --- Save to Firestore ---
