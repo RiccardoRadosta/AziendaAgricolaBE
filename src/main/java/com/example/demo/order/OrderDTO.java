@@ -1,8 +1,6 @@
 package com.example.demo.order;
 
-import java.util.List;
-
-// DTO che mappa la richiesta in arrivo dal frontend
+// DTO che mappa esattamente i dati in ingresso dal frontend
 public class OrderDTO {
 
     // Dati del cliente
@@ -18,13 +16,13 @@ public class OrderDTO {
     private String orderNotes;
 
     // Dati dell'ordine
-    private List<Object> items; // Modificato per accettare un vero array di oggetti JSON
+    private String items; // Es. JSON o stringa formattata con i prodotti
     private double subtotal;
 
     // Dati di pagamento
     private String paymentToken;
 
-    // Getters
+    // Getters (necessari per la serializzazione JSON)
     public String getFullName() { return fullName; }
     public String getEmail() { return email; }
     public String getPhone() { return phone; }
@@ -35,11 +33,11 @@ public class OrderDTO {
     public String getCountry() { return country; }
     public boolean isNewsletterSubscribed() { return newsletterSubscribed; }
     public String getOrderNotes() { return orderNotes; }
-    public List<Object> getItems() { return items; }
+    public String getItems() { return items; }
     public double getSubtotal() { return subtotal; }
     public String getPaymentToken() { return paymentToken; }
 
-    // Setters
+    // Setters (FONDAMENTALI per la deserializzazione JSON da parte di Spring/Jackson)
     public void setFullName(String fullName) { this.fullName = fullName; }
     public void setEmail(String email) { this.email = email; }
     public void setPhone(String phone) { this.phone = phone; }
@@ -50,7 +48,7 @@ public class OrderDTO {
     public void setCountry(String country) { this.country = country; }
     public void setNewsletterSubscribed(boolean newsletterSubscribed) { this.newsletterSubscribed = newsletterSubscribed; }
     public void setOrderNotes(String orderNotes) { this.orderNotes = orderNotes; }
-    public void setItems(List<Object> items) { this.items = items; }
+    public void setItems(String items) { this.items = items; }
     public void setSubtotal(double subtotal) { this.subtotal = subtotal; }
     public void setPaymentToken(String paymentToken) { this.paymentToken = paymentToken; }
 }
