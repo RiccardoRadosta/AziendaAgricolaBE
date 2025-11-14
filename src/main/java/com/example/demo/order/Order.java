@@ -1,7 +1,6 @@
 package com.example.demo.order;
 
-import java.util.Date;
-import java.util.List; // Importa List
+import java.util.Date; // Changed from ZonedDateTime
 
 public class Order {
 
@@ -20,9 +19,9 @@ public class Order {
     private String orderNotes;
 
     // Order Details
-    private List<Object> items; // Modificato per coerenza
+    private String items;
     private double subtotal;
-    private Date orderDate;
+    private Date orderDate; // Changed from ZonedDateTime
 
     // Order Status
     // 0 = ordinato/in preparazione, 1 = spedito, 2 = consegnato
@@ -121,11 +120,11 @@ public class Order {
         this.orderNotes = orderNotes;
     }
 
-    public List<Object> getItems() { // Modificato
+    public String getItems() {
         return items;
     }
 
-    public void setItems(List<Object> items) { // Modificato
+    public void setItems(String items) {
         this.items = items;
     }
 
@@ -137,11 +136,11 @@ public class Order {
         this.subtotal = subtotal;
     }
 
-    public Date getOrderDate() {
+    public Date getOrderDate() { // Changed from ZonedDateTime
         return orderDate;
     }
 
-    public void setOrderDate(Date orderDate) {
+    public void setOrderDate(Date orderDate) { // Changed from ZonedDateTime
         this.orderDate = orderDate;
     }
 
