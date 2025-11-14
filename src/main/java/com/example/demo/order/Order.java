@@ -1,10 +1,10 @@
 package com.example.demo.order;
 
-import java.time.ZonedDateTime;
+import java.util.Date; // Changed from ZonedDateTime
 
 public class Order {
 
-    private String id; // Changed from Long to String for Firestore
+    private String id;
 
     // Customer Details
     private String fullName;
@@ -21,10 +21,10 @@ public class Order {
     // Order Details
     private String items;
     private double subtotal;
-    private ZonedDateTime orderDate;
+    private Date orderDate; // Changed from ZonedDateTime
 
     // Order Status
-    // 0 = consegnato, 1 = spedito, 2 = ordinato/in preparazione
+    // 0 = ordinato/in preparazione, 1 = spedito, 2 = consegnato
     private int orderStatus;
 
     public Order() {
@@ -32,11 +32,11 @@ public class Order {
 
     // Getters and Setters
 
-    public String getId() { // Changed from Long to String
+    public String getId() {
         return id;
     }
 
-    public void setId(String id) { // Changed from Long to String
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -136,11 +136,11 @@ public class Order {
         this.subtotal = subtotal;
     }
 
-    public ZonedDateTime getOrderDate() {
+    public Date getOrderDate() { // Changed from ZonedDateTime
         return orderDate;
     }
 
-    public void setOrderDate(ZonedDateTime orderDate) {
+    public void setOrderDate(Date orderDate) { // Changed from ZonedDateTime
         this.orderDate = orderDate;
     }
 

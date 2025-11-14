@@ -5,7 +5,7 @@ import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import org.springframework.stereotype.Service;
 
-import java.time.ZonedDateTime;
+import java.util.Date; // Changed from ZonedDateTime
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -52,7 +52,7 @@ public class OrderService {
         order.setSubtotal(orderDTO.getSubtotal());
 
         // --- Server-Managed Data ---
-        order.setOrderDate(ZonedDateTime.now());
+        order.setOrderDate(new Date()); // Changed from ZonedDateTime.now()
         order.setOrderStatus(0); // 0 = ordinato/in preparazione
         order.setId(UUID.randomUUID().toString()); // Generate a unique ID
 
