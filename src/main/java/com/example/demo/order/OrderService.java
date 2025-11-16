@@ -1,77 +1,60 @@
 package com.example.demo.order;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.Query;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.*;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.util.Date;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
 
     private final Firestore firestore;
-    private final ObjectMapper objectMapper; // Aggiunto per la conversione JSON
 
     public OrderService(Firestore firestore) {
         this.firestore = firestore;
-        this.objectMapper = new ObjectMapper(); // Inizializzato
+    }
+
+    public Order createOrder(Order order) throws ExecutionException, InterruptedException {
+        ApiFuture<DocumentReference> future = firestore.collection("orders").add(order);
+        DocumentReference documentReference = future.get();
+        order.setId(documentReference.getId());
+        // Ora aggiorna il documento con il suo ID
+        firestore.collection("orders").document(documentReference.getId()).set(order).get();
+        return order;
     }
 
     public List<Order> getAllOrders(Integer status) throws ExecutionException, InterruptedException {
-        Query query = firestore.collection("orders").orderBy("orderDate", Query.Direction.DESCENDING);
+        CollectionReference ordersCollection = firestore.collection("orders");
+        Query query = ordersCollection;
 
         if (status != null) {
-            query = query.whereEqualTo("orderStatus", status);
+            query = ordersCollection.whereEqualTo("orderStatus", status);
         }
 
-        List<QueryDocumentSnapshot> documents = query.get().get().getDocuments();
-
-        return documents.stream()
-                .map(doc -> doc.toObject(Order.class))
-                .collect(Collectors.toList());
+        ApiFuture<QuerySnapshot> future = query.get();
+        QuerySnapshot querySnapshot = future.get();
+        List<Order> orders = new ArrayList<>();
+        for (QueryDocumentSnapshot document : querySnapshot.getDocuments()) {
+            orders.add(document.toObject(Order.class));
+        }
+        return orders;
     }
 
-    public void createOrder(OrderDTO orderDTO) {
-        Order order = new Order();
+    public Order updateOrderStatus(String orderId, int status) throws ExecutionException, InterruptedException {
+        DocumentReference docRef = firestore.collection("orders").document(orderId);
+        ApiFuture<WriteResult> future = docRef.update("orderStatus", status);
+        future.get(); // Attendi il completamento dell'aggiornamento
 
-        // --- DTO to Model Mapping ---
-        order.setFullName(orderDTO.getFullName());
-        order.setEmail(orderDTO.getEmail());
-        order.setPhone(orderDTO.getPhone());
-        order.setAddress(orderDTO.getAddress());
-        order.setCity(orderDTO.getCity());
-        order.setProvince(orderDTO.getProvince());
-        order.setPostalCode(orderDTO.getPostalCode());
-        order.setCountry(orderDTO.getCountry());
-        order.setNewsletterSubscribed(orderDTO.isNewsletterSubscribed());
-        order.setOrderNotes(orderDTO.getOrderNotes());
-        order.setSubtotal(orderDTO.getSubtotal());
-
-        // --- Conversione di 'items' da Stringa a Lista ---
-        try {
-            List<Object> itemsList = objectMapper.readValue(orderDTO.getItems(), new TypeReference<List<Object>>(){});
-            order.setItems(itemsList);
-        } catch (IOException e) {
-            // Gestisci l'eccezione - per ora, impostiamo una lista vuota se la conversione fallisce
-            // o potremmo lanciare un'eccezione per indicare un dato malformato.
-            e.printStackTrace(); // Logga l'errore per il debug
-            throw new IllegalArgumentException("Formato items non valido", e);
+        // Recupera e restituisci l'ordine aggiornato
+        ApiFuture<DocumentSnapshot> documentSnapshotApiFuture = docRef.get();
+        DocumentSnapshot documentSnapshot = documentSnapshotApiFuture.get();
+        if (documentSnapshot.exists()) {
+            return documentSnapshot.toObject(Order.class);
+        } else {
+            throw new RuntimeException("Order not found after update with id: " + orderId);
         }
-
-        // --- Server-Managed Data ---
-        order.setOrderDate(new Date());
-        order.setOrderStatus(0);
-        order.setId(UUID.randomUUID().toString());
-
-        // --- Save to Firestore ---
-        firestore.collection("orders").document(order.getId()).set(order);
     }
 }
