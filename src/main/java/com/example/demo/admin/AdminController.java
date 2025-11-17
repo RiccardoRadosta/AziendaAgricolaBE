@@ -22,10 +22,9 @@ public class AdminController {
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login() {
-        // This is a temporary fix to align with the frontend's expectations.
-        // It now returns a JSON object.
-        // TODO: Implement proper authentication and JWT generation.
-        return ResponseEntity.ok(Collections.singletonMap("message", "Admin login successful"));
+        // As per the user's request, we now return a fake token to align with the frontend's expectations.
+        // This allows testing the full login flow before implementing real JWT logic.
+        return ResponseEntity.ok(Collections.singletonMap("token", "fake-jwt-token-for-testing"));
     }
 
     @GetMapping("/test")
@@ -35,7 +34,6 @@ public class AdminController {
 
     @GetMapping("/orders")
     public List<Order> getOrders(@RequestParam(required = false) Integer status) throws ExecutionException, InterruptedException {
-        // Reverted to the original and correct logic
         return orderService.getAllOrders(status);
     }
 }
