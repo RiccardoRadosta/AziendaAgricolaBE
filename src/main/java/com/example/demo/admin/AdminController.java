@@ -5,7 +5,9 @@ import com.example.demo.order.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 @RestController
@@ -19,9 +21,11 @@ public class AdminController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login() {
-        // If Spring Security authentication is successful, this method will be called.
-        return ResponseEntity.ok("Admin login successful");
+    public ResponseEntity<Map<String, String>> login() {
+        // This is a temporary fix to align with the frontend's expectations.
+        // It now returns a JSON object.
+        // TODO: Implement proper authentication and JWT generation.
+        return ResponseEntity.ok(Collections.singletonMap("message", "Admin login successful"));
     }
 
     @GetMapping("/test")
@@ -31,6 +35,10 @@ public class AdminController {
 
     @GetMapping("/orders")
     public List<Order> getOrders(@RequestParam(required = false) Integer status) throws ExecutionException, InterruptedException {
-        return orderService.getAllOrders(status);
+        if (status != null) {
+            return orderService.getOrdersByStatus(status);
+        } else {
+            return orderService.getAllOrders();
+        }
     }
 }
