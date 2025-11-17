@@ -2,6 +2,7 @@ package com.example.demo.admin;
 
 import com.example.demo.order.Order;
 import com.example.demo.order.OrderService;
+import com.example.demo.security.JwtUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,16 +16,26 @@ import java.util.concurrent.ExecutionException;
 public class AdminController {
 
     private final OrderService orderService;
+    private final JwtUtil jwtUtil;
 
-    public AdminController(OrderService orderService) {
+    public AdminController(OrderService orderService, JwtUtil jwtUtil) {
         this.orderService = orderService;
+        this.jwtUtil = jwtUtil;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login() {
-        // As per the user's request, we now return a fake token to align with the frontend's expectations.
-        // This allows testing the full login flow before implementing real JWT logic.
-        return ResponseEntity.ok(Collections.singletonMap("token", "fake-jwt-token-for-testing"));
+    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credentials) {
+        // This is a simplified authentication check.
+        // In a real-world application, you would validate credentials against a database.
+        String username = credentials.get("username");
+        String password = credentials.get("password");
+
+        if ("admin".equals(username) && "password".equals(password)) {
+            String token = jwtUtil.generateToken(username);
+            return ResponseEntity.ok(Collections.singletonMap("token", token));
+        } else {
+            return ResponseEntity.status(401).build();
+        }
     }
 
     @GetMapping("/test")
