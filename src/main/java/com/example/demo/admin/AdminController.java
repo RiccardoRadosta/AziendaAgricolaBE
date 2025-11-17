@@ -35,10 +35,7 @@ public class AdminController {
 
     @GetMapping("/orders")
     public List<Order> getOrders(@RequestParam(required = false) Integer status) throws ExecutionException, InterruptedException {
-        if (status != null) {
-            return orderService.getOrdersByStatus(status);
-        } else {
-            return orderService.getAllOrders();
-        }
+        // Reverted to the original and correct logic
+        return orderService.getAllOrders(status);
     }
 }
