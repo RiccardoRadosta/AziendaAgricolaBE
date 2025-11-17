@@ -4,7 +4,6 @@ import com.example.demo.admin.dto.DashboardStatsDTO;
 import com.example.demo.admin.dto.TopProductDTO;
 import com.example.demo.order.Order;
 import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
@@ -30,8 +29,6 @@ public class DashboardService {
     public DashboardStatsDTO getDashboardStats() throws ExecutionException, InterruptedException {
         List<Order> allOrders = firestore.collection("orders").get().get().getDocuments()
                 .stream().map(doc -> doc.toObject(Order.class)).collect(Collectors.toList());
-
-        LocalDate today = LocalDate.now();
 
         // Calcoli per periodo
         double revenueToday = calculateTotalRevenue(allOrders, order -> isToday(order.getOrderDate()));
@@ -74,14 +71,23 @@ public class DashboardService {
 
     private List<TopProductDTO> calculateTopSellingProducts(List<Order> orders) {
         return orders.stream()
-            .flatMap(order -> ((List<Map<String, Object>>) order.getItems()).stream()) // Corretto per il cast
+            // Filtra ordini senza items per evitare NullPointerException
+            .filter(order -> order.getItems() != null && !order.getItems().isEmpty())
+            // Appiattisce la lista di liste di prodotti in un unico stream di prodotti
+            .flatMap(order -> order.getItems().stream())
+            // Converte ogni oggetto prodotto (che è una Map) in modo sicuro
+            .map(item -> (Map<String, Object>) item)
+            // Raggruppa per nome e somma le quantità
             .collect(Collectors.groupingBy(
-                item -> (String) item.get("name"),
-                Collectors.summingInt(item -> ((Number) item.get("quantity")).intValue()) // Corretto per il cast
+                itemMap -> (String) itemMap.get("name"),
+                Collectors.summingInt(itemMap -> ((Number) itemMap.get("quantity")).intValue())
             ))
             .entrySet().stream()
+            // Ordina per quantità venduta in modo decrescente
             .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+            // Prende i primi 5
             .limit(5)
+            // Mappa il risultato nel DTO
             .map(entry -> new TopProductDTO(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList());
     }
@@ -90,11 +96,13 @@ public class DashboardService {
     // --- Funzioni di utilità per il confronto di date ---
 
     private boolean isToday(Date date) {
+        if (date == null) return false;
         LocalDate orderDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
         return orderDate.isEqual(LocalDate.now());
     }
 
     private boolean isThisWeek(Date date) {
+        if (date == null) return false;
         LocalDate orderDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
         LocalDate today = LocalDate.now();
         LocalDate startOfWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
@@ -103,6 +111,7 @@ public class DashboardService {
     }
 
     private boolean isThisMonth(Date date) {
+        if (date == null) return false;
         LocalDate orderDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
         LocalDate today = LocalDate.now();
         return orderDate.getMonth() == today.getMonth() && orderDate.getYear() == today.getYear();
