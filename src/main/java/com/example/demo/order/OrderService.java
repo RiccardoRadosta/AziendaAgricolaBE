@@ -2,9 +2,13 @@ package com.example.demo.order;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.WriteResult;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -18,11 +22,11 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final Firestore firestore;
-    private final ObjectMapper objectMapper; // Aggiunto per la conversione JSON
+    private final ObjectMapper objectMapper;
 
     public OrderService(Firestore firestore) {
         this.firestore = firestore;
-        this.objectMapper = new ObjectMapper(); // Inizializzato
+        this.objectMapper = new ObjectMapper();
     }
 
     public List<Order> getAllOrders(Integer status) throws ExecutionException, InterruptedException {
@@ -41,8 +45,7 @@ public class OrderService {
 
     public void createOrder(OrderDTO orderDTO) {
         Order order = new Order();
-
-        // --- DTO to Model Mapping ---
+        // ... (codice di creazione ordine invariato)
         order.setFullName(orderDTO.getFullName());
         order.setEmail(orderDTO.getEmail());
         order.setPhone(orderDTO.getPhone());
@@ -54,24 +57,45 @@ public class OrderService {
         order.setNewsletterSubscribed(orderDTO.isNewsletterSubscribed());
         order.setOrderNotes(orderDTO.getOrderNotes());
         order.setSubtotal(orderDTO.getSubtotal());
-
-        // --- Conversione di 'items' da Stringa a Lista ---
         try {
             List<Object> itemsList = objectMapper.readValue(orderDTO.getItems(), new TypeReference<List<Object>>(){});
             order.setItems(itemsList);
         } catch (IOException e) {
-            // Gestisci l'eccezione - per ora, impostiamo una lista vuota se la conversione fallisce
-            // o potremmo lanciare un'eccezione per indicare un dato malformato.
-            e.printStackTrace(); // Logga l'errore per il debug
+            e.printStackTrace();
             throw new IllegalArgumentException("Formato items non valido", e);
         }
-
-        // --- Server-Managed Data ---
         order.setOrderDate(new Date());
         order.setOrderStatus(0);
         order.setId(UUID.randomUUID().toString());
-
-        // --- Save to Firestore ---
         firestore.collection("orders").document(order.getId()).set(order);
+    }
+
+    /**
+     * MODIFICA lo stato di un ordine esistente su Firestore.
+     * @param orderId L'ID dell'ordine da modificare.
+     * @param newStatus Il nuovo stato da impostare.
+     * @return L'ordine completo dopo la modifica.
+     */
+    public Order updateOrderStatus(String orderId, int newStatus) throws ExecutionException, InterruptedException {
+        if (newStatus < 0 || newStatus > 2) {
+            throw new IllegalArgumentException("Lo stato dell'ordine non è valido.");
+        }
+
+        DocumentReference orderRef = firestore.collection("orders").document(orderId);
+
+        // Prima verifichiamo che l'ordine esista
+        if (!orderRef.get().get().exists()) {
+            throw new RuntimeException("Ordine non trovato con ID: " + orderId);
+        }
+
+        // Eseguiamo la MODIFICA del singolo campo 'orderStatus'.
+        // Questa operazione NON tocca gli altri campi del documento.
+        ApiFuture<WriteResult> updateFuture = orderRef.update("orderStatus", newStatus);
+        updateFuture.get(); // Attendiamo che la modifica sia completata con successo
+
+        // Come richiesto dalle specifiche API, dopo la modifica, recuperiamo e restituiamo
+        // l'intero oggetto aggiornato per inviarlo al frontend.
+        DocumentSnapshot updatedDocument = orderRef.get().get();
+        return updatedDocument.toObject(Order.class);
     }
 }

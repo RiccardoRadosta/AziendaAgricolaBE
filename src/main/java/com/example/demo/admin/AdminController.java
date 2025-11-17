@@ -15,18 +15,16 @@ import java.util.concurrent.ExecutionException;
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    private final OrderService orderService;
     private final JwtUtil jwtUtil;
+    private final OrderService orderService; // Usa il servizio degli ordini esistente
 
-    public AdminController(OrderService orderService, JwtUtil jwtUtil) {
-        this.orderService = orderService;
+    public AdminController(JwtUtil jwtUtil, OrderService orderService) {
         this.jwtUtil = jwtUtil;
+        this.orderService = orderService;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credentials) {
-        // This is a simplified authentication check.
-        // In a real-world application, you would validate credentials against a database.
+    public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
         String username = credentials.get("username");
         String password = credentials.get("password");
 
@@ -34,17 +32,34 @@ public class AdminController {
             String token = jwtUtil.generateToken(username);
             return ResponseEntity.ok(Collections.singletonMap("token", token));
         } else {
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(401).body(Collections.singletonMap("error", "Credenziali non valide"));
         }
     }
 
-    @GetMapping("/test")
-    public String testAdmin() {
-        return "Access to admin endpoint successful!";
+    @GetMapping("/orders")
+    public ResponseEntity<List<Order>> getAllOrders(@RequestParam(required = false) Integer status) throws ExecutionException, InterruptedException {
+        List<Order> orders = orderService.getAllOrders(status);
+        return ResponseEntity.ok(orders);
     }
 
-    @GetMapping("/orders")
-    public List<Order> getOrders(@RequestParam(required = false) Integer status) throws ExecutionException, InterruptedException {
-        return orderService.getAllOrders(status);
+    @PutMapping("/orders/{orderId}/status")
+    public ResponseEntity<?> updateOrderStatus(
+            @PathVariable String orderId,
+            @RequestBody Map<String, Integer> statusUpdate) {
+
+        Integer newStatus = statusUpdate.get("status");
+        if (newStatus == null) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("error", "Campo 'status' mancante o non valido."));
+        }
+
+        try {
+            Order updatedOrder = orderService.updateOrderStatus(orderId, newStatus);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("error", e.getMessage()));
+        } catch (Exception e) {
+            // Gestisce sia ExecutionException, InterruptedException, sia l'ordine non trovato
+            return ResponseEntity.notFound().build();
+        }
     }
 }
