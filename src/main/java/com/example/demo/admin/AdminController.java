@@ -1,5 +1,6 @@
 package com.example.demo.admin;
 
+import com.example.demo.admin.dto.DashboardStatsDTO;
 import com.example.demo.order.Order;
 import com.example.demo.order.OrderService;
 import com.example.demo.security.JwtUtil;
@@ -16,11 +17,13 @@ import java.util.concurrent.ExecutionException;
 public class AdminController {
 
     private final JwtUtil jwtUtil;
-    private final OrderService orderService; // Usa il servizio degli ordini esistente
+    private final OrderService orderService;
+    private final DashboardService dashboardService; // Aggiunto il nuovo servizio
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
+        this.dashboardService = dashboardService; // Inizializzato nel costruttore
     }
 
     @PostMapping("/login")
@@ -33,6 +36,17 @@ public class AdminController {
             return ResponseEntity.ok(Collections.singletonMap("token", token));
         } else {
             return ResponseEntity.status(401).body(Collections.singletonMap("error", "Credenziali non valide"));
+        }
+    }
+
+    @GetMapping("/dashboard-stats")
+    public ResponseEntity<DashboardStatsDTO> getDashboardStats() {
+        try {
+            DashboardStatsDTO stats = dashboardService.getDashboardStats();
+            return ResponseEntity.ok(stats);
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
         }
     }
 
@@ -58,7 +72,6 @@ public class AdminController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Collections.singletonMap("error", e.getMessage()));
         } catch (Exception e) {
-            // Gestisce sia ExecutionException, InterruptedException, sia l'ordine non trovato
             return ResponseEntity.notFound().build();
         }
     }
