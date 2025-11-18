@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -97,5 +99,53 @@ public class OrderService {
         // l'intero oggetto aggiornato per inviarlo al frontend.
         DocumentSnapshot updatedDocument = orderRef.get().get();
         return updatedDocument.toObject(Order.class);
+    }
+
+    public Order updateOrderDetails(String orderId, OrderDTO orderDetails) throws ExecutionException, InterruptedException {
+        DocumentReference orderRef = firestore.collection("orders").document(orderId);
+        DocumentSnapshot document = orderRef.get().get();
+        if (!document.exists()) {
+            throw new RuntimeException("Ordine non trovato con ID: " + orderId);
+        }
+        Map<String, Object> updates = new HashMap<>();
+        if (orderDetails.getFullName() != null) {
+            updates.put("fullName", orderDetails.getFullName());
+        }
+        if (orderDetails.getEmail() != null) {
+            updates.put("email", orderDetails.getEmail());
+        }
+        if (orderDetails.getPhone() != null) {
+            updates.put("phone", orderDetails.getPhone());
+        }
+        if (orderDetails.getAddress() != null) {
+            updates.put("address", orderDetails.getAddress());
+        }
+        if (orderDetails.getCity() != null) {
+            updates.put("city", orderDetails.getCity());
+        }
+        if (orderDetails.getProvince() != null) {
+            updates.put("province", orderDetails.getProvince());
+        }
+        if (orderDetails.getPostalCode() != null) {
+            updates.put("postalCode", orderDetails.getPostalCode());
+        }
+        if (orderDetails.getCountry() != null) {
+            updates.put("country", orderDetails.getCountry());
+        }
+        if (orderDetails.getOrderNotes() != null) {
+            updates.put("orderNotes", orderDetails.getOrderNotes());
+        }
+        if (!updates.isEmpty()) {
+            orderRef.update(updates).get();
+        }
+        return orderRef.get().get().toObject(Order.class);
+    }
+
+    public void deleteOrder(String orderId) throws ExecutionException, InterruptedException {
+        DocumentReference orderRef = firestore.collection("orders").document(orderId);
+        if (!orderRef.get().get().exists()) {
+            throw new RuntimeException("Ordine non trovato con ID: " + orderId);
+        }
+        orderRef.delete().get();
     }
 }
