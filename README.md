@@ -1,97 +1,117 @@
-# Backend E-commerce con Spring Boot e Stripe
+# Progetto Spring Boot con JWT, Firebase e Stripe
 
-## Riepilogo dell'Applicazione
+Questo progetto è un'applicazione Java basata su Spring Boot che fornisce un backend completo per la gestione di ordini, newsletter e un pannello di amministrazione. L'applicazione integra l'autenticazione basata su token JWT, la connettività a Firebase e l'elaborazione dei pagamenti con Stripe.
 
-Questa è un'applicazione backend basata su Java e il framework Spring Boot, progettata per servire un e-commerce. Integra il sistema di pagamento **Stripe** per processare gli addebiti in modo sicuro.
+## Tecnologie Utilizzate
 
-### Funzionalità Principali
+- **Spring Boot 3.2.1**: Framework per la creazione di applicazioni Java stand-alone.
+- **Spring Security**: Per la gestione dell'autenticazione e autorizzazione.
+- **JWT (JSON Web Token)**: Per la creazione di token di accesso per un'autenticazione sicura.
+- **Firebase Admin SDK**: Per l'integrazione con i servizi di Firebase.
+- **Stripe-Java**: Libreria ufficiale di Stripe per l'elaborazione dei pagamenti in Java.
+- **Maven**: Per la gestione delle dipendenze e il build del progetto.
+- **Java 17**: Versione del linguaggio di programmazione.
 
-1.  **Gestione Pagamenti e Ordini:** Riceve i dettagli di un ordine e un token di pagamento sicuro da Stripe, crea un `PaymentIntent` e restituisce lo stato al frontend per la conferma finale. Gestisce i flussi di autenticazione sicura (3D Secure).
-2.  **Iscrizione Newsletter:** Salva l'email di un utente nel database per future comunicazioni.
+## Funzionalità Principali
 
----
+### 1. Autenticazione e Sicurezza
 
-## Prerequisiti
+- **Autenticazione JWT**: L'accesso alle API è protetto tramite token JWT. Un utente deve prima autenticarsi per ricevere un token, che deve poi essere incluso nelle richieste successive.
+- **Filtro di Sicurezza**: Un `JwtRequestFilter` intercetta ogni richiesta per validare il token JWT e impostare l'autenticazione nel contesto di Spring Security.
+- **Configurazione di Sicurezza**: La `SecurityConfig` definisce le regole di accesso, specificando quali endpoint sono pubblici e quali richiedono l'autenticazione.
 
-Prima di avviare l'applicazione, è necessario configurare la propria chiave segreta di Stripe.
+### 2. Gestione degli Ordini
 
-1.  **Clona il repository.**
-2.  **Apri il file `src/main/resources/application.properties`:**
-3.  Trova la riga `#stripe.secret.key=`
-4.  Rimuovi il commento (`#`) e incolla la tua chiave segreta di Stripe (es. `sk_test_...`).
-5.  **Importante:** Questo file non deve essere "committato" con la chiave al suo interno.
+- **Creazione e Gestione Ordini**: Espone API per creare nuovi ordini, recuperarli e gestirli.
+- **Integrazione con Stripe**: Utilizza Stripe per elaborare i pagamenti associati agli ordini.
+- **DTO (Data Transfer Object)**: Utilizza `OrderDTO` per trasferire i dati degli ordini tra il client e il server in modo sicuro e pulito.
 
-## Avvio dell'Applicazione
+### 3. Iscrizione alla Newsletter
 
-Puoi avviare il server usando il Maven Wrapper incluso:
+- **API per l'Iscrizione**: Fornisce endpoint per consentire agli utenti di iscriversi e annullare l'iscrizione a una newsletter.
+- **Validazione**: Applica la validazione sui dati forniti per l'iscrizione tramite `spring-boot-starter-validation`.
 
-```bash
-./mvnw spring-boot:run
+### 4. Pannello di Amministrazione
+
+- **Dashboard**: Un'area riservata agli amministratori per monitorare lo stato dell'applicazione.
+- **Statistiche**: Fornisce dati aggregati, come le statistiche del pannello di controllo (`DashboardStatsDTO`) e i prodotti più venduti (`TopProductDTO`).
+
+## Struttura del Progetto
+
+Il progetto è organizzato nei seguenti package:
+
+- `config`: Contiene le classi di configurazione per Firebase (`FirebaseConfig`), Stripe (`StripeConfig`) e le impostazioni web (`WebConfig`).
+- `security`: Include le classi per la gestione della sicurezza, come `JwtUtil` (per la creazione e validazione dei token), `JwtRequestFilter` e `SecurityConfig`.
+- `admin`: Raccoglie i controller, i servizi e i DTO relativi al pannello di amministrazione.
+- `newsletter`: Gestisce la logica per le iscrizioni alla newsletter.
+- `order`: Contiene le classi per la gestione degli ordini.
+
+## Chiamate alle API
+
+L'applicazione espone diverse API REST per interagire con il sistema. Di seguito una descrizione generale degli endpoint disponibili:
+
+### Autenticazione
+
+- `POST /authenticate`: Endpoint per l'autenticazione di un utente e la generazione di un token JWT. (Nota: l'implementazione specifica di questo endpoint non è visibile, ma è una parte standard della configurazione di sicurezza JWT).
+
+### Amministrazione (`/admin`)
+
+- `GET /dashboard`: Recupera le statistiche e i dati per il pannello di amministrazione.
+
+### Newsletter (`/newsletter`)
+
+- `POST /subscribe`: Permette a un utente di iscriversi alla newsletter.
+- `DELETE /unsubscribe`: Consente a un utente di annullare l'iscrizione.
+
+### Ordini (`/orders`)
+
+- `POST /`: Crea un nuovo ordine.
+- `GET /{id}`: Recupera i dettagli di un ordine specifico.
+- `GET /`: Elenca tutti gli ordini (potrebbe essere un endpoint protetto per amministratori).
+
+## Interazioni con il Database (Firestore/Firebase)
+
+Sebbene il codice non mostri l'implementazione esatta delle interazioni con il database, l'inclusione di **Firebase Admin SDK** suggerisce che i dati vengano salvati su **Cloud Firestore** o un altro servizio di database di Firebase. Le operazioni tipiche che l'applicazione eseguirà sul database includono:
+
+- **Salvataggio Utenti**: Memorizzazione delle informazioni degli utenti per l'autenticazione.
+- **Salvataggio Iscrizioni**: Salvataggio degli indirizzi email degli iscritti alla newsletter.
+- **Salvataggio Ordini**: Memorizzazione dei dettagli degli ordini, inclusi i prodotti, le quantità e lo stato del pagamento.
+- **Recupero Dati**: Interrogazioni per recuperare statistiche per il pannello di amministrazione, come il numero totale di ordini o i prodotti più popolari.
+
+## Configurazione
+
+Per eseguire il progetto, è necessario configurare le credenziali per Firebase e Stripe.
+
+### Firebase
+
+1.  Crea un progetto su [Firebase Console](https://console.firebase.google.com/).
+2.  Genera una chiave dell'account di servizio (un file JSON).
+3.  Imposta il percorso del file JSON nella configurazione dell'applicazione (ad esempio, tramite una variabile d'ambiente o in `application.properties`).
+
+La `FirebaseConfig.java` si occupa di inizializzare l'app Firebase all'avvio.
+
+### Stripe
+
+1.  Ottieni la tua chiave segreta dall'[dashboard di Stripe](https://dashboard.stripe.com/).
+2.  Configura la chiave in `StripeConfig.java` o, preferibilmente, tramite variabili d'ambiente per non esporla nel codice.
+
+```java
+// Esempio in StripeConfig.java
+@Value("${stripe.api.key}")
+private String stripeApiKey;
+
+@PostConstruct
+public void init() {
+    Stripe.apiKey = stripeApiKey;
+}
 ```
 
-Il server sarà in ascolto sulla porta `8080`.
+## Come Eseguire il Progetto
 
----
-
-## API Endpoints
-
-L'applicazione espone i seguenti endpoint REST:
-
-### 1. Creare un Intento di Pagamento
-
-Questo endpoint crea un `PaymentIntent` di Stripe e restituisce il suo `clientSecret` e il suo stato iniziale al frontend. **Non finalizza il pagamento.**
-
--   **URL:** `http://localhost:8080/api/orders/charge`
--   **Metodo HTTP:** `POST`
--   **Corpo della Richiesta (Payload JSON):**
-    ```json
-    {
-        "subtotal": 28.00,
-        "paymentToken": "pm_xxxxxxxxxxxx",
-        // ...altri dati dell'ordine...
-    }
+1.  **Clona il repository.**
+2.  **Configura le credenziali**: Assicurati di aver impostato correttamente le chiavi per Firebase e Stripe come descritto sopra.
+3.  **Compila ed esegui**: Utilizza Maven per avviare l'applicazione.
+    ```bash
+    ./mvnw spring-boot:run
     ```
-
-#### Risposte Possibili
-
--   **Risposta di Successo (HTTP 200 OK):** Indica che l'intento è stato creato. Il frontend deve ora usare il `clientSecret` per confermare il pagamento con Stripe.js.
-    ```json
-    {
-        "status": "requires_confirmation",
-        "clientSecret": "pi_xxxxxxxxxxxx_secret_xxxxxxxx"
-    }
-    ```
-    Il frontend **deve** usare questo `clientSecret` per chiamare la funzione `stripe.confirmCardPayment()` di Stripe.js, la quale gestirà l'eventuale autenticazione 3D Secure e finalizzerà il pagamento.
-
--   **Risposta di Errore (HTTP 400 Bad Request):** Indica che c'è stato un problema durante la creazione dell'intento.
-    ```json
-    {
-        "error": "An error occurred with Stripe."
-    }
-    ```
-
-### 2. Salvare un Ordine nel Database
-
-Questo endpoint dovrebbe essere chiamato dal frontend **solo dopo** che il pagamento è stato confermato con successo tramite Stripe.js.
-
--   **URL:** `http://localhost:8080/api/orders/create`
--   **Metodo HTTP:** `POST`
--   **Corpo della Richiesta (Payload JSON):** Tutti i dati dell'ordine (indirizzo, prodotti, ecc.).
-
-### 3. Iscriversi alla Newsletter
-
--   **URL:** `http://localhost:8080/api/newsletter/subscribe`
--   **Metodo HTTP:** `POST`
--   **Corpo della Richiesta (Payload JSON):**
-    ```json
-    {
-        "email": "nuovo.iscritto@email.com"
-    }
-    ```
-
--   **Risposta di Successo (HTTP 200 OK):**
-    ```json
-    {
-        "message": "Subscription successful!"
-    }
-    ```
+L'applicazione sarà disponibile all'indirizzo `http://localhost:8080`.
