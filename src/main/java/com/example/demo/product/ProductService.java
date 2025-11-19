@@ -25,31 +25,36 @@ public class ProductService {
         this.productsCollection = this.firestore.collection("products");
     }
 
-    public Product createProduct(ProductDTO productDTO) throws IOException, ExecutionException, InterruptedException {
-        // 1. Carica le immagini e ottieni gli URL
+    public Product createProduct(ProductDTO productDTO, List<MultipartFile> images) throws IOException, ExecutionException, InterruptedException {
+        // 1. Crea un riferimento per il nuovo documento per ottenere un ID univoco
+        DocumentReference newProductRef = productsCollection.document();
+        String newProductId = newProductRef.getId();
+
+        // 2. Carica le immagini utilizzando l'ID del prodotto per creare un percorso univoco
         List<String> imageUrls = new ArrayList<>();
-        if (productDTO.getImages() != null && !productDTO.getImages().isEmpty()) {
-            for (MultipartFile imageFile : productDTO.getImages()) {
+        if (images != null && !images.isEmpty()) {
+            for (MultipartFile imageFile : images) {
                 if (!imageFile.isEmpty()) {
-                    String imageUrl = storageService.uploadFile(imageFile);
+                    // Costruisce un percorso come "products/{productId}/{filename}"
+                    String blobName = "products/" + newProductId + "/" + imageFile.getOriginalFilename();
+                    String imageUrl = storageService.uploadFile(imageFile, blobName);
                     imageUrls.add(imageUrl);
                 }
             }
         }
 
-        // 2. Prepara l'oggetto Product
+        // 3. Prepara l'oggetto Product con tutti i dati
         Product product = new Product();
+        product.setId(newProductId); // Imposta l'ID generato
         product.setName(productDTO.getName());
         product.setDescription(productDTO.getDescription());
         product.setPrice(productDTO.getPrice());
-        product.setImageUrls(imageUrls);
+        product.setQuantity(productDTO.getQuantity()); // Mantenuto per la logica di business
+        product.setCategory(productDTO.getCategory()); // Mantenuto per la logica di business
+        product.setImages(imageUrls); // Corretto qui
 
-        // 3. Genera un ID e salva su Firestore
-        DocumentReference newProductRef = productsCollection.document();
-        String newProductId = newProductRef.getId();
-        product.setId(newProductId);
-
-        newProductRef.set(product).get(); // Salva l'oggetto nel documento
+        // 4. Salva l'oggetto completo su Firestore
+        newProductRef.set(product).get();
 
         return product;
     }

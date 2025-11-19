@@ -1,19 +1,19 @@
 package com.example.demo.product;
 
 import com.google.cloud.firestore.annotation.DocumentId;
+
 import java.util.List;
 
 public class Product {
+
     @DocumentId
     private String id;
     private String name;
     private String description;
     private double price;
-    private List<String> imageUrls; // Lista di URL delle immagini
-
-    // Costruttore vuoto necessario per la deserializzazione di Firestore
-    public Product() {
-    }
+    private int quantity;
+    private String category;
+    private List<String> images; // Corretto da imageUrls a images
 
     // Getters and Setters
 
@@ -49,11 +49,27 @@ public class Product {
         this.price = price;
     }
 
-    public List<String> getImageUrls() {
-        return imageUrls;
+    public int getQuantity() {
+        return quantity;
     }
 
-    public void setImageUrls(List<String> imageUrls) {
-        this.imageUrls = imageUrls;
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public List<String> getImages() {
+        return images;
+    }
+
+    public void setImages(List<String> images) {
+        this.images = images;
     }
 }
