@@ -1,13 +1,25 @@
-
-# Firebase credentials
-src/main/resources/firebase-service-account.json
-
-# IDE files
-.idea/
-*.iml
-
-# Build output
-target/
+# File di configurazione locale
+# NON FARE IL COMMIT DI QUESTO FILE SE CONTIENE CREDENZIALI!
+src/main/resources/application.properties
 
 # Log files
 *.log
+
+# Build artifacts
+target/
+*.jar
+*.war
+*.ear
+
+# File specifici degli IDE
+.idea/
+*.iml
+*.iws
+.classpath
+.project
+.settings/
+bin/
+
+# File del sistema operativo
+.DS_Store
+Thumbs.db
