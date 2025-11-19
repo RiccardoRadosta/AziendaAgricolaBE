@@ -1,13 +1,11 @@
 package com.example.demo.product;
 
-import org.springframework.web.multipart.MultipartFile;
-import java.util.List;
-
 public class ProductDTO {
     private String name;
     private String description;
     private double price;
-    private List<MultipartFile> images;
+    private int quantity;    // Campo aggiunto
+    private String category;  // Campo aggiunto
 
     // Getters and Setters
     public String getName() {
@@ -34,11 +32,19 @@ public class ProductDTO {
         this.price = price;
     }
 
-    public List<MultipartFile> getImages() {
-        return images;
+    public int getQuantity() {
+        return quantity;
     }
 
-    public void setImages(List<MultipartFile> images) {
-        this.images = images;
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 }
