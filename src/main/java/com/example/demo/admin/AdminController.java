@@ -4,15 +4,10 @@ import com.example.demo.admin.dto.DashboardStatsDTO;
 import com.example.demo.order.Order;
 import com.example.demo.order.OrderDTO;
 import com.example.demo.order.OrderService;
-import com.example.demo.product.Product;
-import com.example.demo.product.ProductDTO;
-import com.example.demo.product.ProductService;
 import com.example.demo.security.JwtUtil;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -24,14 +19,12 @@ public class AdminController {
 
     private final JwtUtil jwtUtil;
     private final OrderService orderService;
-    private final DashboardService dashboardService;
-    private final ProductService productService; // Aggiunto ProductService
+    private final DashboardService dashboardService; // Aggiunto il nuovo servizio
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, ProductService productService) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
-        this.dashboardService = dashboardService;
-        this.productService = productService; // Inizializzato
+        this.dashboardService = dashboardService; // Inizializzato nel costruttore
     }
 
     @PostMapping("/login")
@@ -106,42 +99,6 @@ public class AdminController {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
-            return ResponseEntity.status(500).build();
-        }
-    }
-
-    // === Product Endpoints ===
-
-    @PostMapping("/products")
-    public ResponseEntity<Product> createProduct(@ModelAttribute ProductDTO productDTO) {
-        try {
-            Product createdProduct = productService.createProduct(productDTO);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdProduct);
-        } catch (IOException | ExecutionException | InterruptedException e) {
-            return ResponseEntity.status(500).build();
-        }
-    }
-
-    @PutMapping("/products/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable String id, @ModelAttribute ProductDTO productDTO) {
-        try {
-            Product updatedProduct = productService.updateProduct(id, productDTO);
-            if (updatedProduct != null) {
-                return ResponseEntity.ok(updatedProduct);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (IOException | ExecutionException | InterruptedException e) {
-            return ResponseEntity.status(500).build();
-        }
-    }
-
-    @DeleteMapping("/products/{id}")
-    public ResponseEntity<Object> deleteProduct(@PathVariable String id) {
-        try {
-            productService.deleteProduct(id);
-            return ResponseEntity.ok().body("{\"message\": \"Prodotto eliminato con successo\"}");
-        } catch (ExecutionException | InterruptedException e) {
             return ResponseEntity.status(500).build();
         }
     }
