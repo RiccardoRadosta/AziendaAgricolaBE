@@ -8,9 +8,12 @@ import java.util.List;
 @Getter
 @Setter
 public class ProductDTO {
+    private String id;
     private String name;
     private String description;
     private double price;
     private int stock;
     private List<String> imageUrls;
+    private String category;
+    private boolean visible;
 }

@@ -4,6 +4,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -18,7 +19,17 @@ public class ProductService {
         this.productsCollection = firestore.collection("products");
     }
 
+    // Restituisce solo i prodotti visibili per l'API pubblica
     public List<Product> getAllProducts() throws ExecutionException, InterruptedException {
+        ApiFuture<QuerySnapshot> future = productsCollection.whereEqualTo("visible", true).get();
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        return documents.stream()
+                .map(doc -> doc.toObject(Product.class))
+                .collect(Collectors.toList());
+    }
+    
+    // Nuovo metodo per l'admin: restituisce tutti i prodotti, anche quelli non visibili
+    public List<Product> getAllProductsForAdmin() throws ExecutionException, InterruptedException {
         ApiFuture<QuerySnapshot> future = productsCollection.get();
         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
         return documents.stream()
@@ -32,8 +43,9 @@ public class ProductService {
         product.setDescription(productDTO.getDescription());
         product.setPrice(productDTO.getPrice());
         product.setStock(productDTO.getStock());
-        // --- Correzione qui ---
         product.setImageUrls(productDTO.getImageUrls());
+        product.setCategory(productDTO.getCategory());
+        product.setVisible(productDTO.isVisible());
 
         ApiFuture<DocumentReference> future = productsCollection.add(product);
         return future.get().getId();
@@ -42,15 +54,15 @@ public class ProductService {
     public void updateProduct(String id, ProductDTO productDTO) throws ExecutionException, InterruptedException {
         DocumentReference docRef = productsCollection.document(id);
         
-        // Usiamo una mappa per aggiornare solo i campi non nulli, sebbene il DTO li avrà tutti.
-        // Questo è un approccio flessibile per futuri aggiornamenti parziali.
-        Map<String, Object> updates = Map.of(
-            "name", productDTO.getName(),
-            "description", productDTO.getDescription(),
-            "price", productDTO.getPrice(),
-            "stock", productDTO.getStock(),
-            "imageUrls", productDTO.getImageUrls()
-        );
+        // Costruiamo la mappa in modo dinamico per flessibilità
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("name", productDTO.getName());
+        updates.put("description", productDTO.getDescription());
+        updates.put("price", productDTO.getPrice());
+        updates.put("stock", productDTO.getStock());
+        updates.put("imageUrls", productDTO.getImageUrls());
+        updates.put("category", productDTO.getCategory());
+        updates.put("visible", productDTO.isVisible());
 
         docRef.update(updates).get(); // .get() per attendere il completamento
     }

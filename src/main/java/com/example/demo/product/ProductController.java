@@ -14,12 +14,11 @@ public class ProductController {
 
     private final ProductService productService;
 
-    // Rimosso JwtUtil dal costruttore
     public ProductController(ProductService productService) {
         this.productService = productService;
     }
 
-    // Questo endpoint sarà pubblico grazie alla configurazione di sicurezza
+    // Endpoint pubblico per i clienti: restituisce solo i prodotti visibili
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
         try {
@@ -30,7 +29,19 @@ public class ProductController {
         }
     }
 
-    // Questo endpoint sarà protetto automaticamente dal filtro di sicurezza
+    // Endpoint per l'admin: restituisce tutti i prodotti, anche quelli non visibili.
+    // Il percorso è scelto per essere facilmente protetto dalla configurazione di sicurezza.
+    @GetMapping("/all-for-admin")
+    public ResponseEntity<List<Product>> getAllProductsForAdmin() {
+        try {
+            List<Product> products = productService.getAllProductsForAdmin();
+            return ResponseEntity.ok(products);
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // Protetti per l'admin
     @PostMapping
     public ResponseEntity<?> createProduct(@RequestBody ProductDTO productDTO) {
         try {
@@ -41,7 +52,7 @@ public class ProductController {
         }
     }
 
-    // Questo endpoint sarà protetto automaticamente dal filtro di sicurezza
+    // Protetti per l'admin
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(@PathVariable String id, @RequestBody ProductDTO productDTO) {
         try {
@@ -52,7 +63,7 @@ public class ProductController {
         }
     }
 
-    // Questo endpoint sarà protetto automaticamente dal filtro di sicurezza
+    // Protetti per l'admin
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProduct(@PathVariable String id) {
         try {
