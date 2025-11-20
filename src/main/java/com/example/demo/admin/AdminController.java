@@ -5,9 +5,11 @@ import com.example.demo.order.Order;
 import com.example.demo.order.OrderDTO;
 import com.example.demo.order.OrderService;
 import com.example.demo.security.JwtUtil;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -19,13 +21,46 @@ public class AdminController {
 
     private final JwtUtil jwtUtil;
     private final OrderService orderService;
-    private final DashboardService dashboardService; // Aggiunto il nuovo servizio
+    private final DashboardService dashboardService;
+    private final CloudinaryService cloudinaryService; // Aggiunto il nuovo servizio
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
-        this.dashboardService = dashboardService; // Inizializzato nel costruttore
+        this.dashboardService = dashboardService;
+        this.cloudinaryService = cloudinaryService; // Inizializzato nel costruttore
     }
+
+    // DTO per la richiesta di eliminazione dell'immagine
+    public static class DeleteImageRequest {
+        private String imageUrl;
+
+        public String getImageUrl() {
+            return imageUrl;
+        }
+
+        public void setImageUrl(String imageUrl) {
+            this.imageUrl = imageUrl;
+        }
+    }
+
+    @PostMapping("/images/delete")
+    public ResponseEntity<?> deleteImage(@RequestBody DeleteImageRequest request) {
+        if (request == null || request.getImageUrl() == null || request.getImageUrl().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Image URL is required."));
+        }
+        try {
+            cloudinaryService.deleteImage(request.getImageUrl());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Image deleted"));
+        } catch (IOException e) {
+            // Errore di comunicazione con Cloudinary
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", "Error deleting image: " + e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            // URL non valido
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
