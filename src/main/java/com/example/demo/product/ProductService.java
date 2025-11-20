@@ -19,21 +19,29 @@ public class ProductService {
         this.productsCollection = firestore.collection("products");
     }
 
-    // Restituisce solo i prodotti visibili per l'API pubblica
+    // Corretto: ora imposta l'ID del documento sull'oggetto Product
     public List<Product> getAllProducts() throws ExecutionException, InterruptedException {
         ApiFuture<QuerySnapshot> future = productsCollection.whereEqualTo("visible", true).get();
         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
         return documents.stream()
-                .map(doc -> doc.toObject(Product.class))
+                .map(doc -> {
+                    Product product = doc.toObject(Product.class);
+                    product.setId(doc.getId()); // <-- LA CORREZIONE FONDAMENTALE
+                    return product;
+                })
                 .collect(Collectors.toList());
     }
     
-    // Nuovo metodo per l'admin: restituisce tutti i prodotti, anche quelli non visibili
+    // Corretto: ora imposta l'ID del documento sull'oggetto Product
     public List<Product> getAllProductsForAdmin() throws ExecutionException, InterruptedException {
         ApiFuture<QuerySnapshot> future = productsCollection.get();
         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
         return documents.stream()
-                .map(doc -> doc.toObject(Product.class))
+                .map(doc -> {
+                    Product product = doc.toObject(Product.class);
+                    product.setId(doc.getId()); // <-- LA CORREZIONE FONDAMENTALE
+                    return product;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -54,7 +62,6 @@ public class ProductService {
     public void updateProduct(String id, ProductDTO productDTO) throws ExecutionException, InterruptedException {
         DocumentReference docRef = productsCollection.document(id);
         
-        // Costruiamo la mappa in modo dinamico per flessibilità
         Map<String, Object> updates = new HashMap<>();
         updates.put("name", productDTO.getName());
         updates.put("description", productDTO.getDescription());
@@ -64,10 +71,10 @@ public class ProductService {
         updates.put("category", productDTO.getCategory());
         updates.put("visible", productDTO.isVisible());
 
-        docRef.update(updates).get(); // .get() per attendere il completamento
+        docRef.update(updates).get();
     }
 
     public void deleteProduct(String id) throws ExecutionException, InterruptedException {
-        productsCollection.document(id).delete().get(); // .get() per attendere il completamento
+        productsCollection.document(id).delete().get();
     }
 }
