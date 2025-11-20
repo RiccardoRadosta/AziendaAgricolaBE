@@ -24,7 +24,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/admin/login").permitAll()
                 .requestMatchers("/api/orders/**", "/api/newsletter/**").permitAll()
-                .requestMatchers("/api/admin/**").authenticated()
+                .requestMatchers("/api/admin/**", "/api/products/**").authenticated()
                 .anyRequest().permitAll()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
