@@ -13,35 +13,22 @@ import java.io.IOException;
 @Configuration
 public class FirebaseConfig {
 
-    /**
-     * Carica le credenziali Google dall'ambiente (tramite la variabile
-     * GOOGLE_APPLICATION_CREDENTIALS). Necessario per Firestore.
-     */
     @Bean
-    public GoogleCredentials googleCredentials() throws IOException {
-        return GoogleCredentials.getApplicationDefault();
-    }
+    public Firestore firestore() throws IOException {
+        // This is the standard way to initialize.
+        // It automatically finds the credentials via the GOOGLE_APPLICATION_CREDENTIALS
+        // environment variable or other standard mechanisms.
+        GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
 
-    /**
-     * Inizializza l'app Firebase principale, usando le credenziali caricate.
-     * La configurazione per Storage è stata rimossa perché non richiesta.
-     */
-    @Bean
-    public FirebaseApp firebaseApp(GoogleCredentials credentials) throws IOException {
+        FirebaseOptions options = FirebaseOptions.builder()
+                .setCredentials(credentials)
+                .build();
+
+        // Initialize the app if it's not already initialized
         if (FirebaseApp.getApps().isEmpty()) {
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(credentials)
-                    .build();
-            return FirebaseApp.initializeApp(options);
+            FirebaseApp.initializeApp(options);
         }
-        return FirebaseApp.getInstance();
-    }
 
-    /**
-     * Fornisce il Bean per Firestore, usato dai servizi esistenti come OrderService.
-     */
-    @Bean
-    public Firestore firestore(FirebaseApp firebaseApp) {
-        return FirestoreClient.getFirestore(firebaseApp);
+        return FirestoreClient.getFirestore();
     }
 }
