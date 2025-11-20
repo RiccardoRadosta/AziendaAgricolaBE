@@ -3,6 +3,8 @@ package com.example.demo.product;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class ProductDTO {
@@ -10,5 +12,5 @@ public class ProductDTO {
     private String description;
     private double price;
     private int stock;
-    private String imageUrl;
+    private List<String> imageUrls;
 }

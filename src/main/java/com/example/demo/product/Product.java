@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,5 +17,5 @@ public class Product {
     private String description;
     private double price;
     private int stock;
-    private String imageUrl;
+    private List<String> imageUrls;
 }
