@@ -25,10 +25,12 @@ public class OrderService {
 
     private final Firestore firestore;
     private final ObjectMapper objectMapper;
+    private final BrevoEmailService brevoEmailService;
 
-    public OrderService(Firestore firestore) {
+    public OrderService(Firestore firestore, BrevoEmailService brevoEmailService) {
         this.firestore = firestore;
         this.objectMapper = new ObjectMapper();
+        this.brevoEmailService = brevoEmailService;
     }
 
     public List<Order> getAllOrders(Integer status) throws ExecutionException, InterruptedException {
@@ -70,6 +72,9 @@ public class OrderService {
         order.setOrderStatus(0);
         order.setId(UUID.randomUUID().toString());
         firestore.collection("orders").document(order.getId()).set(order);
+
+        // Invia l'email di conferma
+        brevoEmailService.sendOrderConfirmationEmail(order);
     }
 
     /**

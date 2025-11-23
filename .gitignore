@@ -1,25 +1,19 @@
 # File di configurazione locale
-# NON FARE IL COMMIT DI QUESTO FILE SE CONTIENE CREDENZIALI!
-src/main/resources/application.properties
+application.properties
 
 # Log files
 *.log
 
-# Build artifacts
-target/
-*.jar
-*.war
-*.ear
-
-# File specifici degli IDE
+# File generati dall'IDE
 .idea/
 *.iml
-*.iws
-.classpath
-.project
-.settings/
-bin/
 
-# File del sistema operativo
-.DS_Store
-Thumbs.db
+# File di build di Maven e Gradle
+target/
+build/
+.gradle/
+
+# Pacchetti di dipendenze
+/node_modules/
+dist/
+npm-debug.log
