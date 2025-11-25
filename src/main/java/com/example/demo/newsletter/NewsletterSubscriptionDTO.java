@@ -2,8 +2,12 @@ package com.example.demo.newsletter;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
 
 // Data Transfer Object: rappresenta i dati che arrivano dalla richiesta API
+@Getter
+@Setter
 public class NewsletterSubscriptionDTO {
 
     // ===================== INIZIO DELLA MODIFICA =====================
@@ -13,13 +17,4 @@ public class NewsletterSubscriptionDTO {
     @Email(message = "Deve essere un indirizzo email valido.")
     // ===================== FINE DELLA MODIFICA =====================
     private String email;
-
-    // Getters e Setters necessari per la deserializzazione JSON
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
 }
