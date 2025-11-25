@@ -25,6 +25,9 @@ public class BrevoEmailService {
     @Value("${brevo.api.url}")
     private String apiUrl;
 
+    @Value("${brevo.sender.email}")
+    private String senderEmail;
+
     public BrevoEmailService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
@@ -36,7 +39,7 @@ public class BrevoEmailService {
 
         Map<String, Object> sender = new HashMap<>();
         sender.put("name", "Azienda Agricola");
-        sender.put("email", "riccardoradosta4@gmail.com");
+        sender.put("email", senderEmail);
 
         Map<String, Object> to = new HashMap<>();
         to.put("email", order.getEmail());
