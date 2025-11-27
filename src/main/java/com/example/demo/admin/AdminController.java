@@ -5,6 +5,7 @@ import com.example.demo.order.Order;
 import com.example.demo.order.OrderDTO;
 import com.example.demo.order.OrderService;
 import com.example.demo.security.JwtUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,16 +23,21 @@ public class AdminController {
     private final JwtUtil jwtUtil;
     private final OrderService orderService;
     private final DashboardService dashboardService;
-    private final CloudinaryService cloudinaryService; // Aggiunto il nuovo servizio
+    private final CloudinaryService cloudinaryService;
+
+    @Value("${admin.username}")
+    private String adminUsername;
+
+    @Value("${admin.password}")
+    private String adminPassword;
 
     public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
         this.dashboardService = dashboardService;
-        this.cloudinaryService = cloudinaryService; // Inizializzato nel costruttore
+        this.cloudinaryService = cloudinaryService;
     }
 
-    // DTO per la richiesta di eliminazione dell'immagine
     public static class DeleteImageRequest {
         private String imageUrl;
 
@@ -67,7 +73,7 @@ public class AdminController {
         String username = credentials.get("username");
         String password = credentials.get("password");
 
-        if ("admin".equals(username) && "password".equals(password)) {
+        if (adminUsername.equals(username) && adminPassword.equals(password)) {
             String token = jwtUtil.generateToken(username);
             return ResponseEntity.ok(Collections.singletonMap("token", token));
         } else {
