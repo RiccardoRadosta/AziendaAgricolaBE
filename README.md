@@ -80,7 +80,13 @@ Sebbene il codice non mostri l'implementazione esatta delle interazioni con il d
 
 ## Configurazione
 
-Per eseguire il progetto, è necessario configurare le credenziali per Firebase e Stripe.
+### Gestione delle Variabili: Sviluppo vs. Produzione
+
+L'applicazione segue le best practice di Spring Boot per la gestione della configurazione:
+
+-   **Per lo Sviluppo Locale**: Le configurazioni necessarie per avviare il progetto (come le chiavi per i servizi esterni) sono definite nel file `src/main/resources/application.properties`. Questo permette di essere operativi rapidamente in ambiente di sviluppo.
+
+-   **Per la Produzione**: Per motivi di sicurezza e come pratica standard, tutte le configurazioni definite nel file `application.properties` devono essere fornite come **variabili d'ambiente** sul server di produzione. Spring Boot darà automaticamente priorità alle variabili d'ambiente, sovrascrivendo i valori di default presenti nel file. Questo assicura che nessuna chiave segreta sia mai salvata nel codice sorgente. Il file `.env.example` nel progetto elenca tutte le variabili che devono essere configurate nell'ambiente di produzione.
 
 ### Firebase
 
