@@ -1,21 +1,27 @@
-# Fase 1: Build - Usa un'immagine con Maven e JDK per compilare il progetto
+# Usa un'immagine base con Maven e JDK 17 per la fase di build
 FROM maven:3.8.5-openjdk-17 AS build
 
-# Copia il codice sorgente
-COPY src /home/app/src
-COPY pom.xml /home/app
+# Imposta la directory di lavoro
+WORKDIR /home/app
 
-# Esegui il build di Maven per creare il file .jar
-RUN mvn -f /home/app/pom.xml clean package
+# Copia il file pom.xml e scarica le dipendenze
+COPY pom.xml .
+RUN mvn dependency:go-offline
 
-# Fase 2: Run - Usa un'immagine JRE più leggera per l'esecuzione
-FROM eclipse-temurin:17-jre-alpine
+# Copia il resto del codice sorgente
+COPY src ./src
+
+# Compila l'applicazione e crea il .jar
+RUN mvn package -DskipTests
+
+# Usa un'immagine base più leggera per l'ambiente di runtime
+FROM openjdk:17-jdk-slim
 
 # Copia solo il .jar dalla fase di build
 COPY --from=build /home/app/target/demo-0.0.1-SNAPSHOT.jar /usr/local/lib/app.jar
 
-# Esponi la porta interna del container
+# Esponi la porta interna del container (verrà mappata da Cloud Run)
 EXPOSE 8080
 
-# Comando per avviare l'applicazione
-ENTRYPOINT ["java","-jar","/usr/local/lib/app.jar"]
+# Comando per avviare l'applicazione, usando la variabile PORT fornita da Cloud Run
+ENTRYPOINT ["java", "-jar", "/usr/local/lib/app.jar", "--server.port=${PORT:8080}"]
