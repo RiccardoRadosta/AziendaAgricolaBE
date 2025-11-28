@@ -9,7 +9,7 @@ COPY pom.xml /home/app
 RUN mvn -f /home/app/pom.xml clean package
 
 # Fase 2: Run - Usa un'immagine JRE più leggera per l'esecuzione
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre-alpine
 
 # Copia solo il .jar dalla fase di build
 COPY --from=build /home/app/target/demo-0.0.1-SNAPSHOT.jar /usr/local/lib/app.jar
