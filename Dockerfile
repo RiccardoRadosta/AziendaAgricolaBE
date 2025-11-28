@@ -15,7 +15,7 @@ COPY src ./src
 RUN mvn package -DskipTests
 
 # Usa un'immagine base più leggera per l'ambiente di runtime
-FROM openjdk:17-jdk-slim
+FROM openjdk:17.0.2-slim
 
 # Copia solo il .jar dalla fase di build
 COPY --from=build /home/app/target/demo-0.0.1-SNAPSHOT.jar /usr/local/lib/app.jar
