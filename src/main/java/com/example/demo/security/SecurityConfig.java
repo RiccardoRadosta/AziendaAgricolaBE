@@ -23,18 +23,19 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // 1. Endpoints PUBBLICI (nessuna autenticazione richiesta) - DAL PIU' SPECIFICO
+                // Regole specifiche per i prodotti
+                .requestMatchers(HttpMethod.GET, "/api/products").permitAll() // Chiunque può vedere i prodotti
+                .requestMatchers(HttpMethod.POST, "/api/products").authenticated() // Solo admin può creare
+                .requestMatchers(HttpMethod.PUT, "/api/products/**").authenticated() // Solo admin può aggiornare
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated() // Solo admin può eliminare
+
+                // Altre regole esistenti
                 .requestMatchers("/api/admin/login").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
-                .requestMatchers("/api/orders/**").permitAll()
-                .requestMatchers("/api/newsletter/**").permitAll()
-
-                // 2. Endpoints AMMINISTRATORE (autenticazione richiesta)
+                .requestMatchers("/api/orders/**", "/api/newsletter/**").permitAll()
                 .requestMatchers("/api/admin/**").authenticated()
-                .requestMatchers("/api/products/**").authenticated() // Protegge POST, PUT, DELETE e /all-for-admin
-
-                // 3. Catch-all: Nega tutto il resto per sicurezza (Default-Deny)
-                .anyRequest().authenticated()
+                
+                // Catch-all per tutte le altre richieste (se necessario, ma meglio essere espliciti)
+                .anyRequest().permitAll()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 

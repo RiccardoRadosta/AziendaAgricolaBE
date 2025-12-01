@@ -13,7 +13,7 @@ Questo documento descrive i passaggi necessari per eseguire il deploy dell'appli
 2.  [Fase 1: Preparazione del Backend](#fase-1-preparazione-del-backend)
 3.  [Fase 2: Preparazione del Frontend](#fase-2-preparazione-del-frontend)
 4.  [Fase 3: Deploy del Backend su Google Cloud Run](#fase-3-deploy-del-backend-su-google-cloud-run)
-5.  [Fase 4: Deploy del Frontend su Vercel/Netlify](#fase-4-deploy-del-frontend-su-vercelnetlify)
+5.  [Fase 4: Deploy del Frontend](#fase-4-deploy-del-frontend)
 
 ---
 
@@ -32,27 +32,36 @@ Prima di iniziare, assicurati di avere installato e configurato i seguenti strum
 
 ## Fase 1: Preparazione del Backend
 
-Il backend è un'applicazione Spring Boot che gestisce tutta la logica di business, le API e l'integrazione con servizi esterni.
+Il backend è un'applicazione Spring Boot che gestisce tutta la logica di business e le API. La configurazione delle credenziali è gestita tramite Profili Spring per separare l'ambiente di sviluppo da quello di produzione.
 
-### 1. Configurazione delle Credenziali
+### 1. Configurazione tramite Profili Spring
+
+Il progetto utilizza due file di properties principali:
+- `src/main/resources/application.properties`: Usato per lo sviluppo locale (`dev` profile).
+- `src/main/resources/application-prod.properties`: Usato per il deploy in produzione (`prod` profile).
+
+Il profilo attivo viene scelto in base alla variabile d'ambiente `SPRING_PROFILES_ACTIVE`.
+
+### 2. Gestione delle Credenziali Firebase/Google Cloud
+
+La connessione a Firebase/Firestore viene gestita in modo diverso a seconda dell'ambiente:
+
+-   **Sviluppo Locale (`dev` profile):**
+    -   In `application.properties`, il percorso del file delle credenziali è specificato tramite una variabile d'ambiente, ad es:
+        ```properties
+        firebase.credentials.path=${FIREBASE_CREDENTIALS_PATH}
+        ```
+    -   La classe `SecurityConfig.java` legge questo percorso e inizializza Firebase da un file di sistema.
+
+-   **Produzione (`prod` profile):**
+    -   In `application-prod.properties`, il percorso è impostato sul classpath:
+        ```properties
+        firebase.credentials.path=classpath:serviceAccountKey.json
+        ```
+    -   La classe `SecurityConfig.java` rileva il profilo `prod`, ignora il percorso del file e inizializza Firebase usando le **Credenziali Predefinite dell'Applicazione (Application Default Credentials)** fornite dall'ambiente Cloud Run. Questo elimina la necessità di gestire file di chiavi nel container.
+    -   **È FONDAMENTALE** associare il corretto Service Account al servizio Cloud Run durante il deploy.
 
 **MAI ESEGUIRE IL COMMIT DI CHIAVI PRIVATE O FILE DI CREDENZIALI NEL REPOSITORY GIT.**
-
-Le chiavi API e altre configurazioni sensibili vanno gestite tramite variabili d'ambiente.
-
-1.  **Crea un file `.env.example`** nella root del progetto per elencare tutte le variabili necessarie.
-2.  **Per lo sviluppo locale**: Crea un file `.env` (ignorato da Git) e inserisci i valori reali.
-3.  **Per la produzione**: Le variabili verranno impostate direttamente nell'ambiente di Google Cloud Run durante il deploy.
-
-### 2. Creazione del Dockerfile
-
-Un `Dockerfile` efficace è cruciale. Assicurati che il comando di avvio (`ENTRYPOINT` o `CMD`) permetta a Spring Boot di accettare la porta dall'ambiente esterno, come richiesto da Cloud Run.
-
-**Esempio di `ENTRYPOINT` per Cloud Run:**
-```dockerfile
-ENTRYPOINT ["java", "-jar", "/usr/local/lib/app.jar", "--server.port=${PORT:8080}"]
-```
-Questo comando avvia l'applicazione sulla porta fornita dalla variabile d'ambiente `PORT` (impostata da Cloud Run) e usa `8080` come fallback.
 
 ---
 
@@ -64,7 +73,7 @@ Questo comando avvia l'applicazione sulla porta fornita dalla variabile d'ambien
 
 ## Fase 3: Deploy del Backend su Google Cloud Run
 
-Per questa fase, devi avere installato e configurato `gcloud CLI`.
+Per questa fase, devi avere installato e configurato `gcloud CLI` e aver effettuato l'accesso.
 
 1.  **Abilita le API necessarie** (da eseguire solo una volta per progetto):
     ```bash
@@ -73,45 +82,42 @@ Per questa fase, devi avere installato e configurato `gcloud CLI`.
 
 2.  **Crea un Repository su Artifact Registry** (da eseguire solo una volta per progetto):
     ```bash
-    # Sostituisci REGION (es. europe-west1) e REPO_NAME
-    gcloud artifacts repositories create REPO_NAME --repository-format=docker --location=REGION
+    # Sostituisci REGION (es. europe-west1)
+    gcloud artifacts repositories create azienda-agricola-repo --repository-format=docker --location=europe-west1
     ```
 
 3.  **Costruisci l'immagine Docker e caricala su Artifact Registry**:
+    Questo comando prende il codice, lo pacchettizza in un'immagine Docker e lo spinge nel repository di Artifact Registry.
     ```bash
-    # Sostituisci REGION, PROJECT_ID, REPO_NAME, e APP_NAME
-    gcloud builds submit --tag REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/APP_NAME
+    gcloud builds submit --tag europe-west1-docker.pkg.dev/base-be-azienda/azienda-agricola-repo/azienda-agricola-backend
     ```
 
-4. **Troubleshooting e Deploy Iterativo con Variabili d'Ambiente**
+4. **Deploy su Cloud Run con Configurazione Completa**
 
-È molto comune che il primo deploy (eseguito senza variabili d'ambiente) fallisca con un errore `Container failed to start`. Questo è normale e indica che l'applicazione si è arrestata perché le manca una configurazione.
+Il deploy finale richiede di specificare l'immagine appena creata, la regione, il service account e tutte le variabili d'ambiente necessarie all'applicazione per avviarsi.
 
-**La procedura corretta è iterativa:**
+**Il comando di deploy completo e corretto è il seguente.** Sostituisci i valori segnaposto (`YOUR_...`) con le tue chiavi reali.
 
-1.  **Analizza i Log**: Vai sulla console di Google Cloud, nella sezione "Log" del tuo servizio Cloud Run. Cerca un'eccezione Java che indichi la causa dell'arresto (es. `Could not resolve placeholder 'SOME_VARIABLE'`).
+```bash
+gcloud run deploy azienda-agricola-backend \
+  --image europe-west1-docker.pkg.dev/base-be-azienda/azienda-agricola-repo/azienda-agricola-backend \
+  --platform managed \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --service-account 272598566542-compute@developer.gserviceaccount.com \
+  --set-env-vars="SPRING_PROFILES_ACTIVE=prod,GOOGLE_CLOUD_PROJECT=base-be-azienda,BREVO_API_KEY=YOUR_BREVO_API_KEY,BREVO_SENDER_EMAIL=YOUR_BREVO_SENDER_EMAIL,BREVO_API_URL=https://api.brevo.com/v3/smtp/email,CLOUDINARY_CLOUD_NAME=YOUR_CLOUDINARY_NAME,CLOUDINARY_API_KEY=YOUR_CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET=YOUR_CLOUDINARY_SECRET,CORS_ALLOWED_ORIGINS=*,STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY"
+```
 
-2.  **Identifica e Aggiungi le Variabili Mancanti**: Riesegui il deploy usando il flag `--set-env-vars` per fornire le configurazioni necessarie. Inizia con la variabile indicata dall'errore e aggiungi le altre man mano che nuovi errori appaiono.
-
-3.  **Comando di Deploy Completo (Esempio)**: Una volta identificate tutte le variabili, il tuo comando di deploy sarà simile a questo. Le variabili vanno passate come una singola stringa separata da virgole. **Sostituisci tutti i valori segnaposto (`YOUR_...`) con le tue chiavi reali.**
-
-    ```bash
-    # Sostituisci i segnaposto generici (APP_NAME, REGION, etc.) e quelli delle variabili (YOUR_...)
-    gcloud run deploy APP_NAME \
-      --image REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/APP_NAME \
-      --platform managed \
-      --region REGION \
-      --allow-unauthenticated \
-      --set-env-vars="GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID,STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY,BREVO_API_KEY=YOUR_BREVO_API_KEY,CLOUDINARY_CLOUD_NAME=YOUR_CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY=YOUR_CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET=YOUR_CLOUDINARY_API_SECRET,ADMIN_USERNAME=YOUR_ADMIN_USERNAME,ADMIN_PASSWORD=YOUR_ADMIN_PASSWORD,CORS_ALLOWED_ORIGINS=https://your-frontend-domain.com"
-    ```
-
-Questo processo va ripetuto finché tutte le dipendenze di configurazione non sono soddisfatte e il servizio si avvia correttamente.
+**Note importanti sul comando:**
+-   `--service-account`: Associa l'identità corretta al servizio, fondamentale per l'autenticazione con le API di Google Cloud (es. Firestore).
+-   `--set-env-vars`: Fornisce tutte le chiavi API e le configurazioni. **`SPRING_PROFILES_ACTIVE=prod` è cruciale** per attivare la configurazione di produzione.
+-   `--allow-unauthenticated`: Permette al servizio di essere raggiunto pubblicamente. La sicurezza delle rotte è gestita internamente da Spring Security.
 
 ---
 
-## Fase 4: Deploy del Frontend su Vercel/Netlify
+## Fase 4: Deploy del Frontend
 
-1.  **Importa il Progetto**: Collega il tuo repository Git (la cartella del frontend) alla piattaforma scelta (Vercel, Netlify, etc.).
+1.  **Importa il Progetto**: Collega il tuo repository Git (la cartella del frontend) a una piattaforma come Vercel o Netlify.
 2.  **Configura il Build**: Tipicamente `npm run build` come comando e `dist` come cartella di pubblicazione.
 3.  **Aggiungi le Variabili d'Ambiente**: Nel pannello di controllo della piattaforma, inserisci le variabili per il frontend (es. `VITE_API_BASE_URL` con l'URL del backend di Cloud Run, la chiave pubblica di Stripe, etc.).
-4.  **Esegui il Deploy** e aggiorna le impostazioni CORS del backend con il nuovo URL del frontend, se necessario.
+4.  **Esegui il Deploy** e assicurati che il valore di `CORS_ALLOWED_ORIGINS` nel backend includa il dominio del frontend deployato.
