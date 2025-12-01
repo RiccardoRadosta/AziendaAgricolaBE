@@ -23,5 +23,5 @@ COPY --from=build /home/app/target/demo-0.0.1-SNAPSHOT.jar /usr/local/lib/app.ja
 # Esponi la porta interna del container (verrà mappata da Cloud Run)
 EXPOSE 8080
 
-# Comando per avviare l'applicazione, usando la variabile PORT fornita da Cloud Run
-ENTRYPOINT ["java", "-jar", "/usr/local/lib/app.jar", "--server.port=${PORT:8080}"]
+# Comando per avviare l'applicazione con la correzione per l'errore InaccessibleObjectException
+ENTRYPOINT ["java", "-Dserver.port=${PORT:8080}", "--add-opens", "java.base/java.time=ALL-UNNAMED", "-jar", "/usr/local/lib/app.jar"]
