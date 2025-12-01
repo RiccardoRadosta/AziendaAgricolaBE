@@ -24,4 +24,4 @@ COPY --from=build /home/app/target/demo-0.0.1-SNAPSHOT.jar /usr/local/lib/app.ja
 EXPOSE 8080
 
 # Comando per avviare l'applicazione con la correzione per l'errore InaccessibleObjectException
-ENTRYPOINT ["java", "-Dserver.port=${PORT:8080}", "--add-opens", "java.base/java.time=ALL-UNNAMED", "-jar", "/usr/local/lib/app.jar"]
+ENTRYPOINT ["java", "-Dserver.port=${PORT:8080}", "--add-opens", "java.base/java.time=ALL-UNNAMED", "--add-opens", "java.base/java.time.chrono=ALL-UNNAMED", "-jar", "/usr/local/lib/app.jar"]
