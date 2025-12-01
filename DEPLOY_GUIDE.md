@@ -1,126 +1,117 @@
-# Guida al Deploy con Docker e Google Cloud Run
-
-Questa guida ti accompagnerà nel processo di deploy del backend usando Docker e Google Cloud Run, una piattaforma serverless moderna e scalabile.
-
----
-
-## Fase 1: Gestione delle Credenziali (Backend)
-
-Prima di iniziare, devi raccogliere tutte le credenziali necessarie. Per la produzione, queste verranno gestite in modo sicuro come **variabili d'ambiente** e **segreti** su Google Cloud.
-
-### 1. Credenziali Firebase (`GOOGLE_APPLICATION_CREDENTIALS`)
-
-- **Azione**: Ottieni il file `.json` delle credenziali dal tuo account di servizio su Google Cloud, come già descritto in precedenza.
-- **Deploy (Google Secret Manager)**:
-  1.  Vai su [Google Secret Manager](https://console.cloud.google.com/security/secret-manager).
-  2.  Crea un nuovo segreto (es. `firebase-credentials`).
-  3.  **Copia e incolla l'intero contenuto del tuo file `.json`** nel campo "Valore del secret".
-  4.  Concedi all'account di servizio di Cloud Run l'accesso a questo segreto (Ruolo: `Accessor secret di Secret Manager`).
-
-### 2. Altre Credenziali (Stripe, JWT, Admin, etc.)
-
-- **Azione**: Raccogli tutte le altre credenziali (chiavi Stripe, segreto JWT, credenziali admin, etc.) come descritto nel file `.env.example`.
-- **Deploy**: Queste credenziali verranno inserite direttamente come **variabili d'ambiente** durante la configurazione del servizio su Cloud Run.
-
-### 3. Dominio del Frontend (`CORS_ALLOWED_ORIGINS`)
-
-- **Azione**: Prendi nota dell'URL dove verrà deployato il tuo frontend (es. `https://www.il-mio-sito.com`).
-- **Deploy**: Questo URL sarà il valore della variabile d'ambiente `CORS_ALLOWED_ORIGINS` del tuo servizio Cloud Run.
+<div align="center">
+  <img src="https://storage.googleapis.com/datakaizen-website-bucket/logo_datakaizen.png" alt="Logo" width="150"/>
+  <h1>Guida al Deploy - Applicazione "Azienda Agricola"</h1>
+</div>
 
 ---
 
-## Fase 2: Creazione del `Dockerfile`
+Questo documento descrive i passaggi necessari per eseguire il deploy dell'applicazione full-stack "Azienda Agricola", composta da un backend in Java Spring Boot e un frontend in Vite (React/Vue).
 
-Per eseguire il deploy su Cloud Run, l'applicazione deve essere "containerizzata" usando Docker. Aggiungi un file chiamato `Dockerfile` (senza estensione) nella cartella principale del progetto con il seguente contenuto:
+## Indice
 
-```Dockerfile
-# Fase 1: Build - Usa un'immagine con Maven e JDK per compilare il progetto
-FROM maven:3.8.5-openjdk-17 AS build
+1.  [Prerequisiti](#prerequisiti)
+2.  [Fase 1: Preparazione del Backend](#fase-1-preparazione-del-backend)
+3.  [Fase 2: Preparazione del Frontend](#fase-2-preparazione-del-frontend)
+4.  [Fase 3: Deploy del Backend su Google Cloud Run](#fase-3-deploy-del-backend-su-google-cloud-run)
+5.  [Fase 4: Deploy del Frontend su Vercel/Netlify](#fase-4-deploy-del-frontend-su-vercelnetlify)
 
-# Copia il codice sorgente
-COPY src /home/app/src
-COPY pom.xml /home/app
+---
 
-# Esegui il build di Maven per creare il file .jar
-RUN mvn -f /home/app/pom.xml clean package
+## Prerequisiti
 
-# Fase 2: Run - Usa un'immagine JRE più leggera per l'esecuzione
-FROM openjdk:17-jre-slim
+Prima di iniziare, assicurati di avere installato e configurato i seguenti strumenti:
 
-# Copia solo il .jar dalla fase di build
-COPY --from=build /home/app/target/demo-0.0.1-SNAPSHOT.jar /usr/local/lib/app.jar
+*   **Git**: Per la gestione del codice sorgente.
+*   **Java 17+**: Per eseguire il backend in locale.
+*   **Maven**: Per la gestione delle dipendenze del backend.
+*   **Node.js e npm/yarn**: Per la gestione del frontend.
+*   **Google Cloud SDK (`gcloud CLI`)**: Per interagire con Google Cloud.
+*   **Docker**: Per containerizzare il backend.
 
-# Esponi la porta interna del container
-EXPOSE 8080
+---
 
-# Comando per avviare l'applicazione
-ENTRYPOINT ["java","-jar","/usr/local/lib/app.jar"]
+## Fase 1: Preparazione del Backend
+
+Il backend è un'applicazione Spring Boot che gestisce tutta la logica di business, le API e l'integrazione con servizi esterni.
+
+### 1. Configurazione delle Credenziali
+
+**MAI ESEGUIRE IL COMMIT DI CHIAVI PRIVATE O FILE DI CREDENZIALI NEL REPOSITORY GIT.**
+
+Le chiavi API e altre configurazioni sensibili vanno gestite tramite variabili d'ambiente.
+
+1.  **Crea un file `.env.example`** nella root del progetto per elencare tutte le variabili necessarie.
+2.  **Per lo sviluppo locale**: Crea un file `.env` (ignorato da Git) e inserisci i valori reali.
+3.  **Per la produzione**: Le variabili verranno impostate direttamente nell'ambiente di Google Cloud Run durante il deploy.
+
+### 2. Creazione del Dockerfile
+
+Un `Dockerfile` efficace è cruciale. Assicurati che il comando di avvio (`ENTRYPOINT` o `CMD`) permetta a Spring Boot di accettare la porta dall'ambiente esterno, come richiesto da Cloud Run.
+
+**Esempio di `ENTRYPOINT` per Cloud Run:**
+```dockerfile
+ENTRYPOINT ["java", "-jar", "/usr/local/lib/app.jar", "--server.port=${PORT:8080}"]
 ```
+Questo comando avvia l'applicazione sulla porta fornita dalla variabile d'ambiente `PORT` (impostata da Cloud Run) e usa `8080` come fallback.
 
-Questo file è riutilizzabile e va salvato nel tuo repository Git.
+---
+
+## Fase 2: Preparazione del Frontend
+
+(Questa sezione presuppone che il frontend sia già configurato per leggere le sue variabili d'ambiente)
 
 ---
 
 ## Fase 3: Deploy del Backend su Google Cloud Run
 
-Per questa fase, devi avere installato e configurato `gcloud CLI` sul tuo computer.
+Per questa fase, devi avere installato e configurato `gcloud CLI`.
 
-1.  **Abilita le API necessarie**:
+1.  **Abilita le API necessarie** (da eseguire solo una volta per progetto):
     ```bash
-    gcloud services enable run.googleapis.com artifactregistry.googleapis.com
+    gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
     ```
 
-2.  **Costruisci l'immagine Docker e caricala su Google Artifact Registry** (sostituisci `PROJECT_ID` e `APP_NAME`):
+2.  **Crea un Repository su Artifact Registry** (da eseguire solo una volta per progetto):
     ```bash
-    gcloud builds submit --tag gcr.io/PROJECT_ID/APP_NAME
+    # Sostituisci REGION (es. europe-west1) e REPO_NAME
+    gcloud artifacts repositories create REPO_NAME --repository-format=docker --location=REGION
     ```
 
-3.  **Deploya l'immagine su Cloud Run**, impostando tutte le variabili d'ambiente. Questo è un esempio con le variabili più importanti:
+3.  **Costruisci l'immagine Docker e caricala su Artifact Registry**:
     ```bash
+    # Sostituisci REGION, PROJECT_ID, REPO_NAME, e APP_NAME
+    gcloud builds submit --tag REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/APP_NAME
+    ```
+
+4. **Troubleshooting e Deploy Iterativo con Variabili d'Ambiente**
+
+È molto comune che il primo deploy (eseguito senza variabili d'ambiente) fallisca con un errore `Container failed to start`. Questo è normale e indica che l'applicazione si è arrestata perché le manca una configurazione.
+
+**La procedura corretta è iterativa:**
+
+1.  **Analizza i Log**: Vai sulla console di Google Cloud, nella sezione "Log" del tuo servizio Cloud Run. Cerca un'eccezione Java che indichi la causa dell'arresto (es. `Could not resolve placeholder 'SOME_VARIABLE'`).
+
+2.  **Identifica e Aggiungi le Variabili Mancanti**: Riesegui il deploy usando il flag `--set-env-vars` per fornire le configurazioni necessarie. Inizia con la variabile indicata dall'errore e aggiungi le altre man mano che nuovi errori appaiono.
+
+3.  **Comando di Deploy Completo (Esempio)**: Una volta identificate tutte le variabili, il tuo comando di deploy sarà simile a questo. Le variabili vanno passate come una singola stringa separata da virgole. **Sostituisci tutti i valori segnaposto (`YOUR_...`) con le tue chiavi reali.**
+
+    ```bash
+    # Sostituisci i segnaposto generici (APP_NAME, REGION, etc.) e quelli delle variabili (YOUR_...)
     gcloud run deploy APP_NAME \
-      --image gcr.io/PROJECT_ID/APP_NAME \
+      --image REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/APP_NAME \
       --platform managed \
-      --region europe-west1 `# Scegli la tua regione` \
+      --region REGION \
       --allow-unauthenticated \
-      --set-env-vars="CORS_ALLOWED_ORIGINS=https://www.il-mio-sito.com" \
-      --set-env-vars="STRIPE_SECRET_KEY=sk_live_..." \
-      --set-env-vars="JWT_SECRET=il_tuo_segreto_molto_lungo" `# Aggiungi le altre con la stessa sintassi`
+      --set-env-vars="GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID,STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY,BREVO_API_KEY=YOUR_BREVO_API_KEY,CLOUDINARY_CLOUD_NAME=YOUR_CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY=YOUR_CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET=YOUR_CLOUDINARY_API_SECRET,ADMIN_USERNAME=YOUR_ADMIN_USERNAME,ADMIN_PASSWORD=YOUR_ADMIN_PASSWORD,CORS_ALLOWED_ORIGINS=https://your-frontend-domain.com"
     ```
-    
-    *Nota: `gcloud` ti chiederà di impostare altre opzioni interattivamente al primo deploy.*
 
-Al termine, `gcloud` ti fornirà un **URL pubblico** per il tuo backend (es. `https://app-name-xyz-ew.a.run.app`).
+Questo processo va ripetuto finché tutte le dipendenze di configurazione non sono soddisfatte e il servizio si avvia correttamente.
 
 ---
 
-## Fase 4: Configurazione e Deploy del Frontend
+## Fase 4: Deploy del Frontend su Vercel/Netlify
 
-Il frontend (basato su Vite) deve essere configurato per usare variabili d'ambiente diverse per lo sviluppo locale e la produzione.
-
-### 1. Sviluppo Locale
-
-Per lo sviluppo, crea un file `.env` nella cartella principale del progetto frontend. **Questo file non deve essere caricato su Git.**
-
-**File `.env`:**
-```
-# Variabili d'ambiente per lo sviluppo LOCALE
-
-VITE_API_BASE_URL=http://localhost:8080/api
-VITE_STRIPE_PUBLIC_KEY=pk_test_51SSyIFJyUjcsusLXP52MDwLIuhdHikABiK0qyU0VUaP0fCQ27UyZ9G1m6b7hV8Qu73JE22KxH932oQnbrMq3vyCH00faWDvzsA
-VITE_CLOUDINARY_CLOUD_NAME=dwlh2suxj
-VITE_CLOUDINARY_UPLOAD_PRESET=fattoria_upload
-```
-
-### 2. Deploy in Produzione
-
-Quando deployi il frontend su una piattaforma come Vercel o Netlify, dovrai configurare le variabili d'ambiente nel loro pannello di controllo.
-
-1.  **Ottieni l'URL del Backend**: Prendi l'URL pubblico fornito da Google Cloud Run (es. `https://...a.run.app`).
-
-2.  **Imposta le Variabili d'Ambiente sulla Piattaforma di Hosting**:
-    *   `VITE_API_BASE_URL`: L'URL del tuo backend di produzione (es. `https://app-name-xyz-ew.a.run.app/api`).
-    *   `VITE_STRIPE_PUBLIC_KEY`: La tua chiave **pubblica LIVE** di Stripe (es. `pk_live_...`).
-    *   `VITE_CLOUDINARY_CLOUD_NAME`: Il tuo cloud name di Cloudinary.
-    *   `VITE_CLOUDINARY_UPLOAD_PRESET`: Il tuo preset di upload di Cloudinary.
-
-3.  **Verifica CORS**: Assicurati che l'URL dove è ospitato il tuo frontend (es. `https://www.il-tuo-sito.com`) sia esattamente quello che hai impostato nella variabile `CORS_ALLOWED_ORIGINS` del backend.
+1.  **Importa il Progetto**: Collega il tuo repository Git (la cartella del frontend) alla piattaforma scelta (Vercel, Netlify, etc.).
+2.  **Configura il Build**: Tipicamente `npm run build` come comando e `dist` come cartella di pubblicazione.
+3.  **Aggiungi le Variabili d'Ambiente**: Nel pannello di controllo della piattaforma, inserisci le variabili per il frontend (es. `VITE_API_BASE_URL` con l'URL del backend di Cloud Run, la chiave pubblica di Stripe, etc.).
+4.  **Esegui il Deploy** e aggiorna le impostazioni CORS del backend con il nuovo URL del frontend, se necessario.
