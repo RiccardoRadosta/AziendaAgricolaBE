@@ -1,6 +1,8 @@
 package com.example.demo.admin;
 
 import com.example.demo.admin.dto.DashboardStatsDTO;
+import com.example.demo.admin.dto.NewsletterRequestDTO;
+import com.example.demo.newsletter.NewsletterService;
 import com.example.demo.order.Order;
 import com.example.demo.order.OrderDTO;
 import com.example.demo.order.OrderService;
@@ -24,6 +26,7 @@ public class AdminController {
     private final OrderService orderService;
     private final DashboardService dashboardService;
     private final CloudinaryService cloudinaryService;
+    private final NewsletterService newsletterService;
 
     @Value("${admin.username}")
     private String adminUsername;
@@ -31,11 +34,12 @@ public class AdminController {
     @Value("${admin.password}")
     private String adminPassword;
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
         this.dashboardService = dashboardService;
         this.cloudinaryService = cloudinaryService;
+        this.newsletterService = newsletterService;
     }
 
     public static class DeleteImageRequest {
@@ -59,10 +63,8 @@ public class AdminController {
             cloudinaryService.deleteImage(request.getImageUrl());
             return ResponseEntity.ok(Map.of("success", true, "message", "Image deleted"));
         } catch (IOException e) {
-            // Errore di comunicazione con Cloudinary
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", "Error deleting image: " + e.getMessage()));
         } catch (IllegalArgumentException e) {
-            // URL non valido
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
@@ -78,6 +80,17 @@ public class AdminController {
             return ResponseEntity.ok(Collections.singletonMap("token", token));
         } else {
             return ResponseEntity.status(401).body(Collections.singletonMap("error", "Credenziali non valide"));
+        }
+    }
+
+    @PostMapping("/newsletter/send")
+    public ResponseEntity<?> sendNewsletter(@RequestBody NewsletterRequestDTO newsletterRequest) {
+        try {
+            newsletterService.sendNewsletter(newsletterRequest.getSubject(), newsletterRequest.getMessage());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Newsletter inviata con successo."));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", "Errore durante l'invio della newsletter."));
         }
     }
 

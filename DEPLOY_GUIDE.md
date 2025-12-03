@@ -1,123 +1,125 @@
-<div align="center">
-  <img src="https://storage.googleapis.com/datakaizen-website-bucket/logo_datakaizen.png" alt="Logo" width="150"/>
-  <h1>Guida al Deploy - Applicazione "Azienda Agricola"</h1>
-</div>
+# Guida Completa al Deploy su Google Cloud Run
+
+Questa guida documenta il processo **definitivo e testato** per effettuare il deploy del backend dell'Azienda Agricola su Google Cloud Run. Seguire questi passaggi assicura un deploy pulito, ripetibile e senza errori.
 
 ---
 
-Questo documento descrive i passaggi necessari per eseguire il deploy dell'applicazione full-stack "Azienda Agricola", composta da un backend in Java Spring Boot e un frontend in Vite (React/Vue).
+<a id="concetto-chiave"></a>
+## Concetto Chiave: File di Configurazione vs. Riga di Comando
 
-## Indice
+Invece di passare le credenziali e le variabili d'ambiente come una stringa di testo lunghissima e soggetta a errori nel terminale, utilizziamo due file per definire la nostra configurazione in modo pulito e robusto:
 
-1.  [Prerequisiti](#prerequisiti)
-2.  [Fase 1: Preparazione del Backend](#fase-1-preparazione-del-backend)
-3.  [Fase 2: Preparazione del Frontend](#fase-2-preparazione-del-frontend)
-4.  [Fase 3: Deploy del Backend su Google Cloud Run](#fase-3-deploy-del-backend-su-google-cloud-run)
-5.  [Fase 4: Deploy del Frontend](#fase-4-deploy-del-frontend)
+1.  **`Dockerfile`**: Definisce l'ambiente di esecuzione del container, inclusi i parametri di avvio della Java Virtual Machine (JVM).
+2.  **`env.yaml`**: Contiene tutte le chiavi segrete e le variabili di configurazione dell'applicazione (API keys, credenziali, etc.).
+
+Questo approccio centralizza la configurazione e la separa dal codice dell'applicazione.
 
 ---
 
 ## Prerequisiti
 
-Prima di iniziare, assicurati di avere installato e configurato i seguenti strumenti:
-
-*   **Git**: Per la gestione del codice sorgente.
-*   **Java 17+**: Per eseguire il backend in locale.
-*   **Maven**: Per la gestione delle dipendenze del backend.
-*   **Node.js e npm/yarn**: Per la gestione del frontend.
-*   **Google Cloud SDK (`gcloud CLI`)**: Per interagire con Google Cloud.
-*   **Docker**: Per containerizzare il backend.
+- Aver installato e configurato `gcloud` CLI sul proprio computer.
+- Essere autenticati con l'account Google corretto (`gcloud auth login`).
+- Trovarsi con il terminale nella cartella principale del progetto (`AziendaAgricolaBE`).
 
 ---
 
-## Fase 1: Preparazione del Backend
+## Fase 1: Verificare il `Dockerfile`
 
-Il backend è un'applicazione Spring Boot che gestisce tutta la logica di business e le API. La configurazione delle credenziali è gestita tramite Profili Spring per separare l'ambiente di sviluppo da quello di produzione.
+Il nostro backend Java richiede specifiche opzioni di avvio della JVM per funzionare correttamente nell'ambiente containerizzato di Cloud Run. È fondamentale che questi "flag" siano presenti nel `Dockerfile`.
 
-### 1. Configurazione tramite Profili Spring
+Assicurati che la riga `ENTRYPOINT` nel tuo `Dockerfile` sia esattamente così:
 
-Il progetto utilizza due file di properties principali:
-- `src/main/resources/application.properties`: Usato per lo sviluppo locale (`dev` profile).
-- `src/main/resources/application-prod.properties`: Usato per il deploy in produzione (`prod` profile).
-
-Il profilo attivo viene scelto in base alla variabile d'ambiente `SPRING_PROFILES_ACTIVE`.
-
-### 2. Gestione delle Credenziali Firebase/Google Cloud
-
-La connessione a Firebase/Firestore viene gestita in modo diverso a seconda dell'ambiente:
-
--   **Sviluppo Locale (`dev` profile):**
-    -   In `application.properties`, il percorso del file delle credenziali è specificato tramite una variabile d'ambiente, ad es:
-        ```properties
-        firebase.credentials.path=${FIREBASE_CREDENTIALS_PATH}
-        ```
-    -   La classe `SecurityConfig.java` legge questo percorso e inizializza Firebase da un file di sistema.
-
--   **Produzione (`prod` profile):**
-    -   In `application-prod.properties`, il percorso è impostato sul classpath:
-        ```properties
-        firebase.credentials.path=classpath:serviceAccountKey.json
-        ```
-    -   La classe `SecurityConfig.java` rileva il profilo `prod`, ignora il percorso del file e inizializza Firebase usando le **Credenziali Predefinite dell'Applicazione (Application Default Credentials)** fornite dall'ambiente Cloud Run. Questo elimina la necessità di gestire file di chiavi nel container.
-    -   **È FONDAMENTALE** associare il corretto Service Account al servizio Cloud Run durante il deploy.
-
-**MAI ESEGUIRE IL COMMIT DI CHIAVI PRIVATE O FILE DI CREDENZIALI NEL REPOSITORY GIT.**
-
----
-
-## Fase 2: Preparazione del Frontend
-
-(Questa sezione presuppone che il frontend sia già configurato per leggere le sue variabili d'ambiente)
-
----
-
-## Fase 3: Deploy del Backend su Google Cloud Run
-
-Per questa fase, devi avere installato e configurato `gcloud CLI` e aver effettuato l'accesso.
-
-1.  **Abilita le API necessarie** (da eseguire solo una volta per progetto):
-    ```bash
-    gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
-    ```
-
-2.  **Crea un Repository su Artifact Registry** (da eseguire solo una volta per progetto):
-    ```bash
-    # Sostituisci REGION (es. europe-west1)
-    gcloud artifacts repositories create azienda-agricola-repo --repository-format=docker --location=europe-west1
-    ```
-
-3.  **Costruisci l'immagine Docker e caricala su Artifact Registry**:
-    Questo comando prende il codice, lo pacchettizza in un'immagine Docker e lo spinge nel repository di Artifact Registry.
-    ```bash
-    gcloud builds submit --tag europe-west1-docker.pkg.dev/base-be-azienda/azienda-agricola-repo/azienda-agricola-backend
-    ```
-
-4. **Deploy su Cloud Run con Configurazione Completa**
-
-Il deploy finale richiede di specificare l'immagine appena creata, la regione, il service account e tutte le variabili d'ambiente necessarie all'applicazione per avviarsi.
-
-**Il comando di deploy completo e corretto è il seguente.** Sostituisci i valori segnaposto (`YOUR_...`) con le tue chiavi reali.
-
-```bash
-gcloud run deploy azienda-agricola-backend \
-  --image europe-west1-docker.pkg.dev/base-be-azienda/azienda-agricola-repo/azienda-agricola-backend \
-  --platform managed \
-  --region europe-west1 \
-  --allow-unauthenticated \
-  --service-account 272598566542-compute@developer.gserviceaccount.com \
-  --set-env-vars="SPRING_PROFILES_ACTIVE=prod,GOOGLE_CLOUD_PROJECT=base-be-azienda,BREVO_API_KEY=YOUR_BREVO_API_KEY,BREVO_SENDER_EMAIL=YOUR_BREVO_SENDER_EMAIL,BREVO_API_URL=https://api.brevo.com/v3/smtp/email,CLOUDINARY_CLOUD_NAME=YOUR_CLOUDINARY_NAME,CLOUDINARY_API_KEY=YOUR_CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET=YOUR_CLOUDINARY_SECRET,CORS_ALLOWED_ORIGINS=*,STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY"
+```dockerfile
+# Comando per avviare l'applicazione con tutte le correzioni necessarie per la JVM
+ENTRYPOINT ["java", "-Dserver.port=${PORT:8080}", "--add-opens", "java.base/java.time=ALL-UNNAMED", "--add-opens", "java.base/java.time.chrono=ALL-UNNAMED", "--add-opens", "java.base/java.nio=ALL-UNNAMED", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "/usr/local/lib/app.jar"]
 ```
 
-**Note importanti sul comando:**
--   `--service-account`: Associa l'identità corretta al servizio, fondamentale per l'autenticazione con le API di Google Cloud (es. Firestore).
--   `--set-env-vars`: Fornisce tutte le chiavi API e le configurazioni. **`SPRING_PROFILES_ACTIVE=prod` è cruciale** per attivare la configurazione di produzione.
--   `--allow-unauthenticated`: Permette al servizio di essere raggiunto pubblicamente. La sicurezza delle rotte è gestita internamente da Spring Security.
+> **Lezione Appresa**: Centralizzare tutti i flag `--add-opens` nel `Dockerfile` rende il container auto-configurante e indipendente da variabili d'ambiente esterne come `JAVA_TOOL_OPTIONS`, riducendo il rischio di conflitti.
 
 ---
 
-## Fase 4: Deploy del Frontend
+## Fase 2: Creare il File `env.yaml`
 
-1.  **Importa il Progetto**: Collega il tuo repository Git (la cartella del frontend) a una piattaforma come Vercel o Netlify.
-2.  **Configura il Build**: Tipicamente `npm run build` come comando e `dist` come cartella di pubblicazione.
-3.  **Aggiungi le Variabili d'Ambiente**: Nel pannello di controllo della piattaforma, inserisci le variabili per il frontend (es. `VITE_API_BASE_URL` con l'URL del backend di Cloud Run, la chiave pubblica di Stripe, etc.).
-4.  **Esegui il Deploy** e assicurati che il valore di `CORS_ALLOWED_ORIGINS` nel backend includa il dominio del frontend deployato.
+Questo file conterrà tutte le variabili d'ambiente necessarie al backend.
+
+1.  Nella cartella principale del progetto (`AziendaAgricolaBE`), crea un nuovo file e chiamalo esattamente **`env.yaml`**.
+
+2.  Copia e incolla il seguente contenuto al suo interno. Questo template è già configurato con la sintassi corretta.
+
+```yaml
+# -----------------------------------------------------------------------------
+# File per le variabili d'ambiente di Google Cloud Run.
+# Versione DEFINITIVA con la corretta formattazione YAML per la chiave privata.
+# NON EFFETTUARE IL COMMIT DI QUESTO FILE SU GIT.
+# -----------------------------------------------------------------------------
+
+# Variabili per servizi esterni (Stripe, Brevo, Cloudinary)
+# SOSTITUIRE I SEGNAPOSTO CON LE PROPRIE CHIAVI SEGRETE
+BREVO_API_KEY: 'LA_TUA_CHIAVE_API_BREVO'
+BREVO_SENDER_EMAIL: 'la_tua_email_mittente@esempio.com'
+BREVO_API_URL: 'https://api.brevo.com/v3/smtp/email'
+CLOUDINARY_CLOUD_NAME: 'IL_TUO_CLOUD_NAME'
+CLOUDINARY_API_KEY: 'LA_TUA_CHIAVE_API_CLOUDINARY'
+CLOUDINARY_API_SECRET: 'IL_TUO_API_SECRET_CLOUDINARY'
+STRIPE_SECRET_KEY: 'la_tua_chiave_segreta_stripe (sk_live_... o sk_test_...)'
+
+# Variabili di configurazione dell'applicazione
+GOOGLE_CLOUD_PROJECT: 'il_tuo_project_id_gcp'
+CORS_ALLOWED_ORIGINS: '*' # o un dominio specifico
+ADMIN_USERNAME: 'il_tuo_username_admin'
+ADMIN_PASSWORD: 'la_tua_password_admin'
+
+# Credenziali Firebase in formato JSON.
+# L'uso del | (literal block) garantisce che i caratteri di a-capo (\n) nella chiave privata siano conservati correttamente.
+# INCOLLARE QUI IL CONTENUTO DEL FILE JSON DEL SERVICE ACCOUNT
+GOOGLE_CREDENTIALS_JSON: |
+  {
+    "type": "service_account",
+    "project_id": "IL_TUO_PROJECT_ID_FIREBASE",
+    "private_key_id": "...",
+    "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+    "client_email": "...",
+    "client_id": "...",
+    "auth_uri": "https.accounts.google.com/o/oauth2/auth",
+    "token_uri": "https.oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https.www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "..."
+  }
+
+```
+
+> **Lezione Appresa**: La chiave privata di Firebase contiene dei caratteri "a capo" (`
+`). La sintassi YAML standard (`'...'`) non interpreta questi caratteri, corrompendo la chiave. Usando `|` (chiamato "literal block scalar"), diciamo a YAML di preservare la stringa esattamente com'è, inclusi gli "a capo", risolvendo l'errore `missing end tag`.
+
+---
+
+## Fase 3: Eseguire il Deploy
+
+Una volta che il `Dockerfile` è verificato e il file `env.yaml` è stato creato, sei pronto per il deploy.
+
+Esegui questo singolo comando dal tuo terminale:
+
+```bash
+gcloud run deploy azienda-agricola-backend --source . --region europe-west1 --project base-be-azienda --allow-unauthenticated --env-vars-file=env.yaml
+```
+
+Il processo di build e deploy richiederà qualche minuto. Al termine, `gcloud` ti fornirà l'URL pubblico del tuo servizio.
+
+---
+
+## Appendice: Troubleshooting Futuro
+
+Se un deploy dovesse fallire di nuovo con l'errore "Container failed to start", il primo passo è sempre **leggere i log**. Il comando di deploy stesso ti fornirà un URL per i log della revisione fallita.
+
+In alternativa, puoi usare `gcloud` per recuperare i log.
+
+1.  Trova il nome della revisione fallita (es: `azienda-agricola-backend-00021-zqc`) dal messaggio di errore.
+2.  Esegui questo comando, sostituendo il nome della revisione e adattando le virgolette per il tuo terminale (Windows `cmd.exe` usa le doppie virgolette esterne).
+
+    **Comando per Windows (cmd.exe):**
+    ```bash
+    gcloud logging read "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"azienda-agricola-backend\" AND resource.labels.revision_name=\"NOME_REVISIONE_FALLITA\"" --project base-be-azienda --limit 20
+    ```
+
+Cerca nei log un `FATAL EXCEPTION` o un `Application run failed`. L'errore Java ti dirà esattamente cosa non ha funzionato all'avvio.
