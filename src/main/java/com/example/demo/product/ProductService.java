@@ -81,6 +81,9 @@ public class ProductService {
     public void verifyStockAvailability(List<Map<String, Object>> items) throws ExecutionException, InterruptedException, InsufficientStockException {
         System.out.println("--- [INIZIO CONTROLLO STOCK] ---");
         for (Map<String, Object> item : items) {
+            // AZIONE DI DEBUG: Stampiamo tutte le chiavi presenti nella mappa
+            System.out.println("Chiavi disponibili nell'item: " + item.keySet());
+
             String productId = (String) item.get("id");
             Integer quantity = ((Number) item.get("quantity")).intValue();
             
