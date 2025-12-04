@@ -79,11 +79,15 @@ public class ProductService {
     }
 
     public void verifyStockAvailability(List<Map<String, Object>> items) throws ExecutionException, InterruptedException, InsufficientStockException {
+        System.out.println("--- [INIZIO CONTROLLO STOCK] ---");
         for (Map<String, Object> item : items) {
             String productId = (String) item.get("id");
             Integer quantity = ((Number) item.get("quantity")).intValue();
+            
+            System.out.println("Verifica Prodotto ID: " + productId + ", Quantità richiesta: " + quantity);
 
             if (productId == null || quantity <= 0) {
+                System.out.println("Prodotto saltato (ID nullo o quantità non valida).");
                 continue;
             }
 
@@ -95,26 +99,28 @@ public class ProductService {
                 Product product = document.toObject(Product.class);
                 if (product != null) {
                     int currentStock = product.getStock();
+                    System.out.println("Stock attuale letto dal DB per '" + product.getName() + "': " + currentStock);
 
-                    // LOGICA DI CONTROLLO A PROVA DI ERRORE
-                    // Caso 1: Prodotto completamente esaurito o in stato inconsistente (es. negativo).
                     if (currentStock <= 0) {
+                        System.out.println("!!! ERRORE !!! Lo stock è <= 0. Lancio eccezione.");
                         throw new InsufficientStockException(
                             "Product '" + product.getName() + "' is out of stock and cannot be purchased."
                         );
                     }
                     
-                    // Caso 2: Prodotto disponibile, ma non nella quantità richiesta.
                     if (currentStock < quantity) {
+                        System.out.println("!!! ERRORE !!! Lo stock è insufficiente. Lancio eccezione.");
                         throw new InsufficientStockException(
                             "Insufficient stock for product '" + product.getName() + "'. Requested: " + quantity + ", Available: " + currentStock
                         );
                     }
+                    System.out.println("Controllo stock superato per '" + product.getName() + "'.");
                 }
             } else {
                 throw new RuntimeException("Product with ID " + productId + " not found in database.");
             }
         }
+        System.out.println("--- [FINE CONTROLLO STOCK] ---");
     }
 
     public void decreaseStock(String productId, int quantityToDecrease) {
