@@ -37,6 +37,9 @@ public class OrderController {
     @PostMapping("/charge")
     public ResponseEntity<Map<String, String>> chargeOrder(@RequestBody OrderDTO orderDTO) {
         try {
+            // AZIONE DI DEBUG: Stampiamo la stringa 'items' che riceviamo dal DTO
+            System.out.println("--- [DEBUG CONTROLLER] --- Stringa 'items' ricevuta: " + orderDTO.getItems());
+
             // 1. VERIFICA DISPONIBILITÀ STOCK (NUOVO CONTROLLO)
             List<Map<String, Object>> items = objectMapper.readValue(orderDTO.getItems(), new TypeReference<List<Map<String, Object>>>() {});
             productService.verifyStockAvailability(items);
