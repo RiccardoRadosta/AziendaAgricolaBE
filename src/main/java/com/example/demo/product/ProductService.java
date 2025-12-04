@@ -93,10 +93,23 @@ public class ProductService {
 
             if (document.exists()) {
                 Product product = document.toObject(Product.class);
-                if (product != null && product.getStock() < quantity) {
-                    throw new InsufficientStockException(
-                        "Stock for product '" + product.getName() + "' is insufficient. Only " + product.getStock() + " left."
-                    );
+                if (product != null) {
+                    int currentStock = product.getStock();
+
+                    // LOGICA DI CONTROLLO A PROVA DI ERRORE
+                    // Caso 1: Prodotto completamente esaurito o in stato inconsistente (es. negativo).
+                    if (currentStock <= 0) {
+                        throw new InsufficientStockException(
+                            "Product '" + product.getName() + "' is out of stock and cannot be purchased."
+                        );
+                    }
+                    
+                    // Caso 2: Prodotto disponibile, ma non nella quantità richiesta.
+                    if (currentStock < quantity) {
+                        throw new InsufficientStockException(
+                            "Insufficient stock for product '" + product.getName() + "'. Requested: " + quantity + ", Available: " + currentStock
+                        );
+                    }
                 }
             } else {
                 throw new RuntimeException("Product with ID " + productId + " not found in database.");
