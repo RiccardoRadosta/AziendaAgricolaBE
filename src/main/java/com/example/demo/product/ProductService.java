@@ -52,7 +52,7 @@ public class ProductService {
         product.setImageUrls(productDTO.getImageUrls());
         product.setCategory(productDTO.getCategory());
         product.setVisible(productDTO.isVisible());
-        product.setFeatured(productDTO.isFeatured()); // Corretto: Lombok genera isFeatured() per il campo featured
+        product.setFeatured(productDTO.isFeatured());
 
         ApiFuture<DocumentReference> future = productsCollection.add(product);
         return future.get().getId();
@@ -69,13 +69,39 @@ public class ProductService {
         updates.put("imageUrls", productDTO.getImageUrls());
         updates.put("category", productDTO.getCategory());
         updates.put("visible", productDTO.isVisible());
-        updates.put("featured", productDTO.isFeatured()); // <-- CORREZIONE CHIAVE
+        updates.put("featured", productDTO.isFeatured());
 
         docRef.update(updates).get();
     }
 
     public void deleteProduct(String id) throws ExecutionException, InterruptedException {
         productsCollection.document(id).delete().get();
+    }
+
+    public void verifyStockAvailability(List<Map<String, Object>> items) throws ExecutionException, InterruptedException, InsufficientStockException {
+        for (Map<String, Object> item : items) {
+            String productId = (String) item.get("id");
+            Integer quantity = ((Number) item.get("quantity")).intValue();
+
+            if (productId == null || quantity <= 0) {
+                continue;
+            }
+
+            DocumentReference docRef = productsCollection.document(productId);
+            ApiFuture<DocumentSnapshot> future = docRef.get();
+            DocumentSnapshot document = future.get();
+
+            if (document.exists()) {
+                Product product = document.toObject(Product.class);
+                if (product != null && product.getStock() < quantity) {
+                    throw new InsufficientStockException(
+                        "Stock for product '" + product.getName() + "' is insufficient. Only " + product.getStock() + " left."
+                    );
+                }
+            } else {
+                throw new RuntimeException("Product with ID " + productId + " not found in database.");
+            }
+        }
     }
 
     public void decreaseStock(String productId, int quantityToDecrease) {
