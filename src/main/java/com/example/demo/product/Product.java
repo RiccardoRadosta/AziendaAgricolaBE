@@ -16,4 +16,5 @@ public class Product {
     private List<String> imageUrls;
     private String category;
     private boolean visible = true;
+    private boolean isFeatured = false;
 }

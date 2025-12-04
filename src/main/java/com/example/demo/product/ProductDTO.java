@@ -16,4 +16,5 @@ public class ProductDTO {
     private List<String> imageUrls;
     private String category;
     private boolean visible;
+    private boolean isFeatured;
 }
