@@ -19,27 +19,25 @@ public class ProductService {
         this.productsCollection = firestore.collection("products");
     }
 
-    // Corretto: ora imposta l'ID del documento sull'oggetto Product
     public List<Product> getAllProducts() throws ExecutionException, InterruptedException {
         ApiFuture<QuerySnapshot> future = productsCollection.whereEqualTo("visible", true).get();
         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
         return documents.stream()
                 .map(doc -> {
                     Product product = doc.toObject(Product.class);
-                    product.setId(doc.getId()); // <-- LA CORREZIONE FONDAMENTALE
+                    product.setId(doc.getId());
                     return product;
                 })
                 .collect(Collectors.toList());
     }
     
-    // Corretto: ora imposta l'ID del documento sull'oggetto Product
     public List<Product> getAllProductsForAdmin() throws ExecutionException, InterruptedException {
         ApiFuture<QuerySnapshot> future = productsCollection.get();
         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
         return documents.stream()
                 .map(doc -> {
                     Product product = doc.toObject(Product.class);
-                    product.setId(doc.getId()); // <-- LA CORREZIONE FONDAMENTALE
+                    product.setId(doc.getId());
                     return product;
                 })
                 .collect(Collectors.toList());
@@ -54,7 +52,7 @@ public class ProductService {
         product.setImageUrls(productDTO.getImageUrls());
         product.setCategory(productDTO.getCategory());
         product.setVisible(productDTO.isVisible());
-        product.setFeatured(productDTO.isFeatured());
+        product.setFeatured(productDTO.isFeatured()); // Corretto: Lombok genera isFeatured() per il campo featured
 
         ApiFuture<DocumentReference> future = productsCollection.add(product);
         return future.get().getId();
@@ -71,7 +69,7 @@ public class ProductService {
         updates.put("imageUrls", productDTO.getImageUrls());
         updates.put("category", productDTO.getCategory());
         updates.put("visible", productDTO.isVisible());
-        updates.put("isFeatured", productDTO.isFeatured());
+        updates.put("featured", productDTO.isFeatured()); // <-- CORREZIONE CHIAVE
 
         docRef.update(updates).get();
     }
@@ -80,16 +78,8 @@ public class ProductService {
         productsCollection.document(id).delete().get();
     }
 
-    /**
-     * Decrementa la quantità di stock per un dato prodotto in modo atomico.
-     * @param productId L'ID del prodotto da aggiornare.
-     * @param quantityToDecrease La quantità da sottrarre dallo stock.
-     */
     public void decreaseStock(String productId, int quantityToDecrease) {
         DocumentReference productRef = productsCollection.document(productId);
-        // FieldValue.increment è un'operazione atomica fornita da Firestore,
-        // che garantisce che la modifica sia sicura anche con più ordini concorrenti.
-        // Per decrementare, passiamo un valore negativo.
         productRef.update("stock", FieldValue.increment(-quantityToDecrease));
     }
 }
