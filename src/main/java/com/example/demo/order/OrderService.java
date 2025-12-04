@@ -1,5 +1,6 @@
 package com.example.demo.order;
 
+import com.example.demo.product.ProductService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiFuture;
@@ -12,6 +13,7 @@ import com.google.cloud.firestore.WriteResult;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -26,11 +28,13 @@ public class OrderService {
     private final Firestore firestore;
     private final ObjectMapper objectMapper;
     private final BrevoEmailService brevoEmailService;
+    private final ProductService productService; // <-- DIPENDENZA AGGIUNTA
 
-    public OrderService(Firestore firestore, BrevoEmailService brevoEmailService) {
+    public OrderService(Firestore firestore, BrevoEmailService brevoEmailService, ProductService productService) {
         this.firestore = firestore;
         this.objectMapper = new ObjectMapper();
         this.brevoEmailService = brevoEmailService;
+        this.productService = productService; // <-- DIPENDENZA INIZIALIZZATA
     }
 
     public List<Order> getAllOrders(Integer status) throws ExecutionException, InterruptedException {
@@ -61,19 +65,35 @@ public class OrderService {
         order.setNewsletterSubscribed(orderDTO.isNewsletterSubscribed());
         order.setOrderNotes(orderDTO.getOrderNotes());
         order.setSubtotal(orderDTO.getSubtotal());
-        try {
-            List<Object> itemsList = objectMapper.readValue(orderDTO.getItems(), new TypeReference<List<Object>>(){});
-            order.setItems(itemsList);
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new IllegalArgumentException("Formato items non valido", e);
-        }
         order.setOrderDate(new Date());
         order.setOrderStatus(0);
         order.setId(UUID.randomUUID().toString());
-        firestore.collection("orders").document(order.getId()).set(order);
 
-        // Invia l'email di conferma
+        try {
+            // Specifichiamo che la lista contiene mappe di String/Object
+            List<Map<String, Object>> itemsList = objectMapper.readValue(orderDTO.getItems(), new TypeReference<List<Map<String, Object>>>(){});
+            order.setItems(new ArrayList<>(itemsList));
+
+            // 1. SALVIAMO l'ordine nel database
+            firestore.collection("orders").document(order.getId()).set(order);
+
+            // 2. DECREMENTIAMO lo stock per ogni prodotto nell'ordine
+            for (Map<String, Object> item : itemsList) {
+                String productId = (String) item.get("id");
+                // La quantità può essere Integer o Long, gestiamola in modo sicuro
+                Integer quantity = ((Number) item.get("quantity")).intValue();
+
+                if (productId != null && quantity > 0) {
+                    productService.decreaseStock(productId, quantity);
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new IllegalArgumentException("Formato items non valido o errore nell'aggiornamento dello stock.", e);
+        }
+
+        // 3. INVIAMO l'email di conferma
         brevoEmailService.sendOrderConfirmationEmail(order);
     }
 

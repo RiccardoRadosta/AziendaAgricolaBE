@@ -77,4 +77,17 @@ public class ProductService {
     public void deleteProduct(String id) throws ExecutionException, InterruptedException {
         productsCollection.document(id).delete().get();
     }
+
+    /**
+     * Decrementa la quantità di stock per un dato prodotto in modo atomico.
+     * @param productId L'ID del prodotto da aggiornare.
+     * @param quantityToDecrease La quantità da sottrarre dallo stock.
+     */
+    public void decreaseStock(String productId, int quantityToDecrease) {
+        DocumentReference productRef = productsCollection.document(productId);
+        // FieldValue.increment è un'operazione atomica fornita da Firestore,
+        // che garantisce che la modifica sia sicura anche con più ordini concorrenti.
+        // Per decrementare, passiamo un valore negativo.
+        productRef.update("stock", FieldValue.increment(-quantityToDecrease));
+    }
 }
