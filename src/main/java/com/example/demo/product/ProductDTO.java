@@ -1,5 +1,6 @@
 package com.example.demo.product;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -16,5 +17,7 @@ public class ProductDTO {
     private List<String> imageUrls;
     private String category;
     private boolean visible;
+
+    @JsonProperty("isFeatured")
     private boolean isFeatured;
 }
