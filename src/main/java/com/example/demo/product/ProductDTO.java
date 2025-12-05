@@ -17,4 +17,5 @@ public class ProductDTO {
     private String category;
     private boolean visible;
     private boolean featured;
+    private Double discountPrice;
 }

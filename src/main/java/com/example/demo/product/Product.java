@@ -17,4 +17,5 @@ public class Product {
     private String category;
     private boolean visible = true;
     private boolean featured = false;
+    private Double discountPrice;
 }

@@ -53,6 +53,7 @@ public class ProductService {
         product.setCategory(productDTO.getCategory());
         product.setVisible(productDTO.isVisible());
         product.setFeatured(productDTO.isFeatured());
+        product.setDiscountPrice(productDTO.getDiscountPrice());
 
         ApiFuture<DocumentReference> future = productsCollection.add(product);
         return future.get().getId();
@@ -70,6 +71,7 @@ public class ProductService {
         updates.put("category", productDTO.getCategory());
         updates.put("visible", productDTO.isVisible());
         updates.put("featured", productDTO.isFeatured());
+        updates.put("discountPrice", productDTO.getDiscountPrice());
 
         docRef.update(updates).get();
     }
