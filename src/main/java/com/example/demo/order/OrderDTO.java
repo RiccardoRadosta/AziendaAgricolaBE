@@ -23,6 +23,7 @@ public class OrderDTO {
     // Dati dell'ordine
     private String items; // Es. JSON o stringa formattata con i prodotti
     private double subtotal;
+    private String shipmentPreference; // "single" or "split"
 
     // Dati di pagamento
     private String paymentToken;

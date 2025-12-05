@@ -18,4 +18,5 @@ public class ProductDTO {
     private boolean visible;
     private boolean featured;
     private Double discountPrice;
+    private String preSaleDate;
 }

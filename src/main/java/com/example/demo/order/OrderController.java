@@ -37,11 +37,9 @@ public class OrderController {
     @PostMapping("/charge")
     public ResponseEntity<Map<String, String>> chargeOrder(@RequestBody OrderDTO orderDTO) {
         try {
-            // 1. VERIFICA DISPONIBILITÀ STOCK (NUOVO CONTROLLO)
             List<Map<String, Object>> items = objectMapper.readValue(orderDTO.getItems(), new TypeReference<List<Map<String, Object>>>() {});
             productService.verifyStockAvailability(items);
 
-            // 2. PROCEDI CON LA CREAZIONE DEL PAYMENTINTENT (Logica esistente)
             PaymentIntentCreateParams.PaymentMethodOptions.Card cardOptions = 
                 PaymentIntentCreateParams.PaymentMethodOptions.Card.builder()
                     .setRequestThreeDSecure(PaymentIntentCreateParams.PaymentMethodOptions.Card.RequestThreeDSecure.ANY)
@@ -67,10 +65,9 @@ public class OrderController {
             return ResponseEntity.ok(response);
 
         } catch (InsufficientStockException e) {
-            // GESTIONE SPECIFICA DELLO STOCK ESAURITO
             Map<String, String> response = new HashMap<>();
             response.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(response); // 409 Conflict
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
         
         } catch (StripeException e) {
             Map<String, String> response = new HashMap<>();
@@ -80,7 +77,6 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 
         } catch (IOException | ExecutionException | InterruptedException e) {
-            // GESTIONE GENERICA PER ALTRI ERRORI DURANTE LA VERIFICA
             Map<String, String> response = new HashMap<>();
             response.put("error", "Failed to verify stock or process order: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);

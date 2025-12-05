@@ -23,9 +23,10 @@ public class Order {
     private List<Object> items; // Modificato
     private double subtotal;
     private Date orderDate;
+    private String shipmentPreference;
 
     // Order Status
-    // 0 = ordinato/in preparazione, 1 = spedito, 2 = consegnato
+    // 0 = ordinato/in preparazione, 1 = spedito, 2 = consegnato, 3 = prevendita
     private int orderStatus;
 
     public Order() {
@@ -151,5 +152,13 @@ public class Order {
 
     public void setOrderStatus(int orderStatus) {
         this.orderStatus = orderStatus;
+    }
+
+    public String getShipmentPreference() {
+        return shipmentPreference;
+    }
+
+    public void setShipmentPreference(String shipmentPreference) {
+        this.shipmentPreference = shipmentPreference;
     }
 }

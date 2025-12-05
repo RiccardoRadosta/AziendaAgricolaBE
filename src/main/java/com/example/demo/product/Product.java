@@ -18,4 +18,5 @@ public class Product {
     private boolean visible = true;
     private boolean featured = false;
     private Double discountPrice;
+    private String preSaleDate;
 }
