@@ -51,69 +51,90 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    public void createOrder(OrderDTO orderDTO) {
-        Order order = new Order();
-        order.setFullName(orderDTO.getFullName());
-        order.setEmail(orderDTO.getEmail());
-        order.setPhone(orderDTO.getPhone());
-        order.setAddress(orderDTO.getAddress());
-        order.setCity(orderDTO.getCity());
-        order.setProvince(orderDTO.getProvince());
-        order.setPostalCode(orderDTO.getPostalCode());
-        order.setCountry(orderDTO.getCountry());
-        order.setNewsletterSubscribed(orderDTO.isNewsletterSubscribed());
-        order.setOrderNotes(orderDTO.getOrderNotes());
-        order.setSubtotal(orderDTO.getSubtotal());
-        order.setOrderDate(new Date());
-        order.setShipmentPreference(orderDTO.getShipmentPreference());
+    public void createOrder(OrderDTO orderDTO) throws IOException, ExecutionException, InterruptedException {
+        List<Map<String, Object>> allItems = objectMapper.readValue(orderDTO.getItems(), new TypeReference<>() {});
 
-        boolean isPreOrder = false;
+        List<Map<String, Object>> regularItems = new ArrayList<>();
+        List<Map<String, Object>> preOrderItems = new ArrayList<>();
 
-        try {
-            List<Map<String, Object>> itemsList = objectMapper.readValue(orderDTO.getItems(), new TypeReference<List<Map<String, Object>>>() {});
-            order.setItems(new ArrayList<>(itemsList));
+        for (Map<String, Object> item : allItems) {
+            String productId = (String) item.get("id");
+            DocumentSnapshot productDoc = firestore.collection("products").document(productId).get().get();
 
-            for (Map<String, Object> item : itemsList) {
-                String productId = (String) item.get("id");
-                ApiFuture<DocumentSnapshot> future = firestore.collection("products").document(productId).get();
-                DocumentSnapshot document = future.get();
-                if (document.exists()) {
-                    String preSaleDate = document.getString("preSaleDate");
-                    if (preSaleDate != null && !preSaleDate.isEmpty()) {
-                        isPreOrder = true;
-                        break;
-                    }
+            if (productDoc.exists()) {
+                item.put("price", productDoc.getDouble("price"));
+                String preSaleDate = productDoc.getString("preSaleDate");
+
+                if (preSaleDate != null && !preSaleDate.isEmpty()) {
+                    preOrderItems.add(item);
+                } else {
+                    regularItems.add(item);
                 }
-            }
-
-            if (isPreOrder) {
-                order.setOrderStatus(3);
             } else {
-                order.setOrderStatus(0);
+                throw new IllegalArgumentException("Prodotto con ID " + productId + " non trovato.");
             }
-
-            order.setId(UUID.randomUUID().toString());
-            firestore.collection("orders").document(order.getId()).set(order);
-
-            for (Map<String, Object> item : itemsList) {
-                String productId = (String) item.get("id");
-                Integer quantity = ((Number) item.get("quantity")).intValue();
-
-                if (productId != null && quantity > 0) {
-                    productService.decreaseStock(productId, quantity);
-                }
-            }
-
-        } catch (IOException | InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-            throw new IllegalArgumentException("Formato items non valido o errore nell'aggiornamento dello stock.", e);
         }
 
-        brevoEmailService.sendOrderConfirmationEmail(order);
+        boolean shouldSplit = "split".equalsIgnoreCase(orderDTO.getShipmentPreference()) && !regularItems.isEmpty() && !preOrderItems.isEmpty();
+
+        if (shouldSplit) {
+            createAndSaveOrder(orderDTO, regularItems, 0);
+            createAndSaveOrder(orderDTO, preOrderItems, 3);
+        } else {
+            int status = preOrderItems.isEmpty() ? 0 : 3;
+            createAndSaveOrder(orderDTO, allItems, status);
+        }
     }
 
+    private void createAndSaveOrder(OrderDTO baseDto, List<Map<String, Object>> items, int status) {
+        if (items.isEmpty()) {
+            return;
+        }
+
+        Order order = new Order();
+        order.setId(UUID.randomUUID().toString());
+        order.setFullName(baseDto.getFullName());
+        order.setEmail(baseDto.getEmail());
+        order.setPhone(baseDto.getPhone());
+        order.setAddress(baseDto.getAddress());
+        order.setCity(baseDto.getCity());
+        order.setProvince(baseDto.getProvince());
+        order.setPostalCode(baseDto.getPostalCode());
+        order.setCountry(baseDto.getCountry());
+        order.setNewsletterSubscribed(baseDto.isNewsletterSubscribed());
+        order.setOrderNotes(baseDto.getOrderNotes());
+        order.setShipmentPreference(baseDto.getShipmentPreference());
+        order.setOrderDate(new Date());
+        order.setOrderStatus(status);
+        order.setItems(new ArrayList<>(items)); // <-- CORRECTED LINE
+
+        double subtotal = items.stream().mapToDouble(item -> {
+            double price = ((Number) item.get("price")).doubleValue();
+            int quantity = ((Number) item.get("quantity")).intValue();
+            return price * quantity;
+        }).sum();
+        order.setSubtotal(subtotal);
+
+        try {
+            firestore.collection("orders").document(order.getId()).set(order).get();
+
+            for (Map<String, Object> item : items) {
+                String productId = (String) item.get("id");
+                int quantity = ((Number) item.get("quantity")).intValue();
+                productService.decreaseStock(productId, quantity);
+            }
+
+            brevoEmailService.sendOrderConfirmationEmail(order);
+
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Fallimento nel salvataggio dell'ordine o aggiornamento stock per l'ordine ID: " + order.getId(), e);
+        }
+    }
+
+
     public Order updateOrderStatus(String orderId, int newStatus) throws ExecutionException, InterruptedException {
-        if (newStatus < 0 || newStatus > 3) { // Updated to allow status 3
+        if (newStatus < 0 || newStatus > 3) {
             throw new IllegalArgumentException("Lo stato dell'ordine non è valido.");
         }
 
@@ -137,7 +158,10 @@ public class OrderService {
             throw new RuntimeException("Ordine non trovato con ID: " + orderId);
         }
         Map<String, Object> updates = new HashMap<>();
-        // ... (existing update logic)
+        if (orderDetails.getFullName() != null) {
+            updates.put("fullName", orderDetails.getFullName());
+        }
+        // ... (altri campi)
         if (!updates.isEmpty()) {
             orderRef.update(updates).get();
         }
