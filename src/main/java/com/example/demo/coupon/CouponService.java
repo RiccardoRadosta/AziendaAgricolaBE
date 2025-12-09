@@ -29,25 +29,30 @@ public class CouponService {
     }
 
     public Optional<Coupon> verifyCoupon(String code) throws ExecutionException, InterruptedException {
-        Query query = couponCollection.whereEqualTo("code", code).whereEqualTo("isActive", true);
+        Query query = couponCollection.whereEqualTo("code", code).whereEqualTo("active", true); // CORRETTO
         ApiFuture<QuerySnapshot> querySnapshot = query.get();
 
         List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
         if (documents.isEmpty()) {
             return Optional.empty();
         }
-        // Restituisce il primo coupon trovato che corrisponde
-        return Optional.of(documents.get(0).toObject(Coupon.class));
+
+        Coupon coupon = documents.get(0).toObject(Coupon.class);
+
+        // Aggiungiamo un controllo sulla data di scadenza
+        if (coupon.getExpiryDate() != null && coupon.getExpiryDate().before(new java.util.Date())) {
+            return Optional.empty(); // Coupon scaduto
+        }
+
+        return Optional.of(coupon);
     }
 
     public Coupon createCoupon(Coupon coupon) throws ExecutionException, InterruptedException {
-        // Controlla se un coupon con lo stesso codice esiste già
         Query query = couponCollection.whereEqualTo("code", coupon.getCode());
         if (!query.get().get().isEmpty()) {
             throw new IllegalArgumentException("Un coupon con il codice '" + coupon.getCode() + "' esiste già.");
         }
 
-        // Se l'ID non è impostato, Firestore ne genererà uno automaticamente
         DocumentReference docRef = couponCollection.document();
         coupon.setId(docRef.getId());
 
@@ -58,14 +63,4 @@ public class CouponService {
     public void deleteCoupon(String id) throws ExecutionException, InterruptedException {
         couponCollection.document(id).delete().get();
     }
-    
-    public void incrementCouponUsage(String couponId) throws ExecutionException, InterruptedException {
-        DocumentReference couponRef = couponCollection.document(couponId);
-        firestore.runTransaction(transaction -> {
-            DocumentSnapshot snapshot = transaction.get(couponRef).get();
-            long newUsageCount = snapshot.getLong("usageCount") + 1;
-            transaction.update(couponRef, "usageCount", newUsageCount);
-            return null;
-        }).get();
-    }    
 }
