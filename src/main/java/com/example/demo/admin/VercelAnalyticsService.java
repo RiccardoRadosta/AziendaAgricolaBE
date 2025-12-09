@@ -13,7 +13,6 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class VercelAnalyticsService {
 
-    // Logger per stampare informazioni di debug nella console
     private static final Logger logger = LoggerFactory.getLogger(VercelAnalyticsService.class);
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -25,25 +24,20 @@ public class VercelAnalyticsService {
     private String vercelProjectId;
 
     public String getAnalyticsData(String from, String type) {
-        // Costruiamo l'URL completo per la richiesta all'API di Vercel
+        // CORREZIONE: Il projectId deve essere un parametro della query, non parte del path.
         String url = String.format(
-            "https://api.vercel.com/v1/analytics/data/%s?from=%s&type=%s",
+            "https://api.vercel.com/v1/analytics/data?projectId=%s&from=%s&type=%s",
             vercelProjectId, from, type
         );
 
-        // Creiamo gli header della richiesta, includendo il token di autorizzazione
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + vercelApiToken);
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        // --- LA NOSTRA CONSOLE DI DEBUG ---
-        // Logghiamo l'URL e gli header prima di inviare la richiesta.
-        // Potremo vederli nella console di Spring Boot.
         logger.info("Sending request to Vercel API.");
         logger.info("URL: {}", url);
         logger.info("Headers: {}", headers);
-        // ----------------------------------
 
         // Eseguiamo la chiamata e restituiamo la risposta
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
