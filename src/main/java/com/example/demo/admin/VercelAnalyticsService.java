@@ -64,4 +64,5 @@ public class VercelAnalyticsService {
             throw e;
         }
     }
+
 }
