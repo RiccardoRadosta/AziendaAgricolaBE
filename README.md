@@ -112,6 +112,33 @@ public void init() {
 }
 ```
 
+### Configurazione Brevo per l'Invio di Email
+
+Per l'invio delle email transazionali (es. conferma d'ordine) e di servizio (es. report giornalieri), il progetto utilizza Brevo (o un servizio SMTP equivalente). È fondamentale configurare correttamente il mittente per garantire la consegna delle email e mantenere una buona reputazione.
+
+**Mittente Verificato**
+
+Brevo richiede che qualsiasi indirizzo email utilizzato come mittente sia prima verificato per dimostrare che hai il permesso di spedire per suo conto.
+
+**Due Tipi di Mittenti:**
+
+1.  **Indirizzo Email Personale (es. `tuamail@gmail.com`)**
+    *   **Verifica**: Per verificare un indirizzo Gmail, Brevo invia un'email di conferma direttamente a quella casella. Dovrai cliccare su un link per completare il processo.
+    *   **Uso**: Adatto per test e sviluppo, ma meno professionale per la produzione. Non puoi creare indirizzi "alias" come `noreply.tuamail@gmail.com`.
+
+2.  **Indirizzo Email su Dominio di Proprietà (es. `noreply@tuodominio.com`)**
+    *   **Prerequisito**: Devi essere il proprietario del dominio (es. `tuodominio.com`).
+    *   **Verifica**: Per verificare un intero dominio, Brevo ti chiederà di aggiungere dei record DNS specifici (come SPF, DKIM) nel pannello di configurazione del tuo provider di dominio. Questo dimostra che sei autorizzato a spedire da *qualsiasi* indirizzo sotto quel dominio (`contatti@`, `support@`, `noreply@`, etc.).
+    *   **Uso**: È la soluzione **raccomandata e più professionale** per la produzione. L'indirizzo `noreply@tuodominio.com` non è una vera casella di posta, ma un'etichetta che indica al destinatario che l'email è automatica e non deve rispondere.
+
+**Variabili d'Ambiente Consigliate:**
+
+Per gestire facilmente i mittenti, si consiglia di utilizzare le seguenti variabili d'ambiente:
+
+*   `SENDER_EMAIL`: Per le comunicazioni dirette con i clienti (es. `info@tuodominio.com`).
+*   `NOREPLY_SENDER_EMAIL`: Per le email automatiche e i report (es. `noreply@tuodominio.com`).
+*   `BREVO_API_KEY`: Per autenticare le richieste verso l'API di Brevo.
+
 ## Come Eseguire il Progetto
 
 1.  **Clona il repository.**
@@ -121,3 +148,32 @@ public void init() {
     ./mvnw spring-boot:run
     ```
 L'applicazione sarà disponibile all'indirizzo `http://localhost:8080`.
+
+## Implementazioni Future
+
+### Report Giornaliero degli Ordini con Cloud Scheduler
+
+Per inviare un report giornaliero degli ordini in modo affidabile e a costo zero, l'approccio consigliato è quello di utilizzare **Google Cloud Scheduler** in combinazione con un endpoint API dedicato, specialmente se l'applicazione è deployata su una piattaforma serverless come Google Cloud Run.
+
+**Problema dell'Approccio Tradizionale (`@Scheduled`)**
+
+L'annotazione `@Scheduled` di Spring Boot non è adatta per un ambiente serverless che scala le istanze a zero (come Cloud Run nel suo funzionamento di default). Se l'applicazione non riceve traffico, viene spenta, e il timer interno di Spring non può attivarsi, causando la mancata esecuzione del task.
+
+**Soluzione Proposta (Serverless-Friendly)**
+
+1.  **Creare un Endpoint API Sicuro**:
+    *   Implementare un nuovo endpoint privato nel `AdminController`, ad esempio `POST /admin/reports/send-daily-summary`.
+    *   La logica per recuperare gli ordini delle ultime 24 ore e inviare l'email di riepilogo andrà inserita all'interno di questo endpoint.
+    *   L'endpoint deve essere protetto per assicurarsi che solo chiamate autorizzate possano attivarlo.
+
+2.  **Configurare Google Cloud Scheduler**:
+    *   Dalla console di Google Cloud, creare un nuovo **Cloud Scheduler Job**.
+    *   **Frequenza**: Impostare la frequenza desiderata usando la sintassi cron (es. `0 6 * * *` per ogni giorno alle 6:00 del mattino).
+    *   **Target**: Configurare il job per inviare una richiesta HTTP (`POST`) all'URL completo dell'endpoint creato al punto 1 (es. `https://<il-tuo-servizio>.a.run.app/admin/reports/send-daily-summary`).
+    *   **Autenticazione**: Configurare il job per includere un token di autenticazione (es. un token di servizio OIDC) nella richiesta, in modo da poter chiamare in sicurezza l'endpoint protetto.
+
+**Vantaggi di Questo Approccio**
+
+*   **Affidabilità**: L'esecuzione è garantita da un servizio Google progettato per questo scopo.
+*   **Efficienza dei Costi**: Sfrutta il piano gratuito di Cloud Scheduler (fino a 3 job gratuiti al mese) e permette a Cloud Run di scalare a zero, minimizzando i costi.
+*   **Best Practice**: È l'architettura standard e raccomandata per eseguire task pianificati in un ambiente serverless.

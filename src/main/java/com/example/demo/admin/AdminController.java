@@ -8,9 +8,11 @@ import com.example.demo.order.OrderDTO;
 import com.example.demo.order.OrderService;
 import com.example.demo.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -27,6 +29,7 @@ public class AdminController {
     private final DashboardService dashboardService;
     private final CloudinaryService cloudinaryService;
     private final NewsletterService newsletterService;
+    private final VercelAnalyticsService vercelAnalyticsService;
 
     @Value("${admin.username}")
     private String adminUsername;
@@ -34,12 +37,32 @@ public class AdminController {
     @Value("${admin.password}")
     private String adminPassword;
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
         this.dashboardService = dashboardService;
         this.cloudinaryService = cloudinaryService;
         this.newsletterService = newsletterService;
+        this.vercelAnalyticsService = vercelAnalyticsService;
+    }
+
+    @GetMapping("/analytics")
+    public ResponseEntity<String> getVercelAnalytics(
+            @RequestParam(defaultValue = "24h") String from,
+            @RequestParam(defaultValue = "pageview") String type
+    ) {
+        try {
+            String analyticsData = vercelAnalyticsService.getAnalyticsData(from, type);
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Content-Type", "application/json; charset=UTF-8");
+            return new ResponseEntity<>(analyticsData, headers, HttpStatus.OK);
+        } catch (HttpClientErrorException e) {
+            // Forward Vercel's error response
+            return new ResponseEntity<>(e.getResponseBodyAsString(), e.getStatusCode());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>("{\"error\": \"An internal error occurred while fetching analytics data.\"}", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     public static class DeleteImageRequest {
