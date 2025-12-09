@@ -54,7 +54,7 @@ Questo file conterrà tutte le variabili d'ambiente necessarie al backend.
 # NON EFFETTUARE IL COMMIT DI QUESTO FILE SU GIT.
 # -----------------------------------------------------------------------------
 
-# Variabili per servizi esterni (Stripe, Brevo, Cloudinary)
+# Variabili per servizi esterni (Stripe, Brevo, Cloudinary, Vercel)
 # SOSTITUIRE I SEGNAPOSTO CON LE PROPRIE CHIAVI SEGRETE
 BREVO_API_KEY: 'LA_TUA_CHIAVE_API_BREVO'
 BREVO_SENDER_EMAIL: 'la_tua_email_mittente@esempio.com'
@@ -63,6 +63,8 @@ CLOUDINARY_CLOUD_NAME: 'IL_TUO_CLOUD_NAME'
 CLOUDINARY_API_KEY: 'LA_TUA_CHIAVE_API_CLOUDINARY'
 CLOUDINARY_API_SECRET: 'IL_TUO_API_SECRET_CLOUDINARY'
 STRIPE_SECRET_KEY: 'la_tua_chiave_segreta_stripe (sk_live_... o sk_test_...)'
+VERCEL_API_TOKEN: 'IL_TUO_TOKEN_API_VERCEL'
+VERCEL_PROJECT_ID: 'IL_TUO_PROJECT_ID_VERCEL'
 
 # Variabili di configurazione dell'applicazione
 GOOGLE_CLOUD_PROJECT: 'il_tuo_project_id_gcp'
