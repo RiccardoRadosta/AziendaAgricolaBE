@@ -29,28 +29,40 @@ public class CouponService {
     }
 
     public Optional<Coupon> verifyCoupon(String code) throws ExecutionException, InterruptedException {
-        Query query = couponCollection.whereEqualTo("code", code).whereEqualTo("active", true); // CORRETTO
-        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        // 1. Query semplice che il tuo Firestore sa già gestire
+        ApiFuture<QuerySnapshot> future = couponCollection.whereEqualTo("code", code).get();
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
 
-        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
         if (documents.isEmpty()) {
+            return Optional.empty(); // Nessun coupon trovato con questo codice
+        }
+
+        // 2. Filtro logico applicato in Java (allineato al resto del progetto)
+        Coupon coupon = documents.get(0).toObject(Coupon.class);
+
+        // Se non è attivo, non è valido
+        if (!coupon.isActive()) {
             return Optional.empty();
         }
 
-        Coupon coupon = documents.get(0).toObject(Coupon.class);
-
-        // Aggiungiamo un controllo sulla data di scadenza
+        // Se è scaduto, non è valido
         if (coupon.getExpiryDate() != null && coupon.getExpiryDate().before(new java.util.Date())) {
-            return Optional.empty(); // Coupon scaduto
+            return Optional.empty();
         }
 
+        // Se ha un limite di utilizzo e questo è stato raggiunto, non è valido
+        if (coupon.getUsageLimit() > 0 && coupon.getUsageCount() >= coupon.getUsageLimit()) {
+            return Optional.empty();
+        }
+
+        // Se tutti i controlli passano, il coupon è valido
         return Optional.of(coupon);
     }
 
     public Coupon createCoupon(Coupon coupon) throws ExecutionException, InterruptedException {
         Query query = couponCollection.whereEqualTo("code", coupon.getCode());
         if (!query.get().get().isEmpty()) {
-            throw new IllegalArgumentException("Un coupon con il codice '" + coupon.getCode() + "' esiste già.");
+            throw new IllegalArgumentException("Un coupon con il codice '"'' + coupon.getCode() + "''' esiste già.");
         }
 
         DocumentReference docRef = couponCollection.document();
@@ -62,5 +74,21 @@ public class CouponService {
 
     public void deleteCoupon(String id) throws ExecutionException, InterruptedException {
         couponCollection.document(id).delete().get();
+    }
+    
+    public void incrementCouponUsage(String couponId) throws ExecutionException, InterruptedException {
+        DocumentReference couponRef = couponCollection.document(couponId);
+        firestore.runTransaction(transaction -> {
+            DocumentSnapshot snapshot = transaction.get(couponRef).get();
+            // Controlla se il campo esiste prima di incrementarlo
+            if (snapshot.contains("usageCount")) {
+                long newUsageCount = snapshot.getLong("usageCount") + 1;
+                transaction.update(couponRef, "usageCount", newUsageCount);
+            } else {
+                // Se non esiste, lo crea e lo imposta a 1
+                transaction.update(couponRef, "usageCount", 1);
+            }
+            return null;
+        }).get();
     }
 }
