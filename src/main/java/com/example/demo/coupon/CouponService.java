@@ -62,7 +62,7 @@ public class CouponService {
     public Coupon createCoupon(Coupon coupon) throws ExecutionException, InterruptedException {
         Query query = couponCollection.whereEqualTo("code", coupon.getCode());
         if (!query.get().get().isEmpty()) {
-            throw new IllegalArgumentException("Un coupon con il codice '"'' + coupon.getCode() + "''' esiste già.");
+            throw new IllegalArgumentException("Un coupon con il codice '" + coupon.getCode() + "' esiste già.");
         }
 
         DocumentReference docRef = couponCollection.document();
