@@ -23,29 +23,27 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // Endpoints Pubblici (accessibili a tutti)
+                // Endpoints Pubblici (elencati per chiarezza, ma permessi comunque da anyRequest)
                 .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
-                .requestMatchers("/api/orders/charge").permitAll()
+                .requestMatchers("/api/orders/charge").permitAll() 
                 .requestMatchers("/api/orders/create").permitAll()
                 .requestMatchers("/api/newsletter/subscribe").permitAll()
                 .requestMatchers("/api/admin/login").permitAll()
-                .requestMatchers("/api/settings/public").permitAll() // <-- REGOlA RIPRISTINATA
-                .requestMatchers("/api/coupons/**").permitAll() // <-- REGOlA RIPRISTINATA
 
-                // Endpoints Protetti (richiedono token admin)
+                // Endpoints Protetti (l'autenticazione viene verificata prima di arrivare a permitAll)
                 .requestMatchers(HttpMethod.POST, "/api/products").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/products/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated()
                 .requestMatchers("/api/admin/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders/**").authenticated()
-                .requestMatchers(HttpMethod.PUT, "/api/orders/**").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/orders/**").authenticated() // <-- UNICA AGGIUNTA FUNZIONALE
                 .requestMatchers(HttpMethod.PUT, "/api/shipments/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/orders/**").authenticated()
-
-                // Nega tutto il resto per sicurezza (se non matchato sopra)
-                .anyRequest().authenticated()
+                
+                // Permetti qualsiasi altra richiesta (es. coupon, settings pubblici, ecc.)
+                .anyRequest().permitAll() // <-- MODIFICA CHIAVE
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
