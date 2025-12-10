@@ -26,7 +26,7 @@ public class SecurityConfig {
                 // Endpoints Pubblici (accessibili a tutti)
                 .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
-                .requestMatchers("/api/orders/charge").permitAll() 
+                .requestMatchers("/api/orders/charge").permitAll()
                 .requestMatchers("/api/orders/create").permitAll()
                 .requestMatchers("/api/newsletter/subscribe").permitAll()
                 .requestMatchers("/api/admin/login").permitAll()
@@ -38,9 +38,10 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders/**").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/orders/**").authenticated() // <-- REGOlA AGGIUNTA
                 .requestMatchers(HttpMethod.PUT, "/api/shipments/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/orders/**").authenticated()
-                
+
                 // Nega tutto il resto se non specificato
                 .anyRequest().denyAll()
             )
