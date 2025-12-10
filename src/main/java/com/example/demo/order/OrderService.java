@@ -4,19 +4,16 @@ import com.example.demo.product.ProductService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
-import com.google.cloud.firestore.WriteResult;
+import com.google.cloud.firestore.WriteBatch;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,20 +35,6 @@ public class OrderService {
         this.productService = productService;
     }
 
-    public List<Order> getAllOrders(Integer status) throws ExecutionException, InterruptedException {
-        Query query = firestore.collection("orders").orderBy("createdAt", Query.Direction.DESCENDING);
-
-        if (status != null) {
-            query = query.whereEqualTo("status", String.valueOf(status));
-        }
-
-        List<QueryDocumentSnapshot> documents = query.get().get().getDocuments();
-
-        return documents.stream()
-                .map(doc -> doc.toObject(Order.class))
-                .collect(Collectors.toList());
-    }
-
     public void createOrder(OrderDTO orderDTO) throws IOException, ExecutionException, InterruptedException {
         List<Map<String, Object>> allItems = objectMapper.readValue(orderDTO.getItems(), new TypeReference<>() {});
 
@@ -61,11 +44,9 @@ public class OrderService {
         for (Map<String, Object> item : allItems) {
             String productId = (String) item.get("id");
             DocumentSnapshot productDoc = firestore.collection("products").document(productId).get().get();
-
             if (productDoc.exists()) {
                 item.put("price", productDoc.getDouble("price"));
                 String preSaleDate = productDoc.getString("preSaleDate");
-
                 if (preSaleDate != null && !preSaleDate.isEmpty()) {
                     preOrderItems.add(item);
                 } else {
@@ -78,119 +59,168 @@ public class OrderService {
 
         boolean shouldSplit = "split".equalsIgnoreCase(orderDTO.getShipmentPreference()) && !regularItems.isEmpty() && !preOrderItems.isEmpty();
 
-        if (shouldSplit) {
-            String regularOrderId = UUID.randomUUID().toString();
-            String preOrderId = UUID.randomUUID().toString();
+        WriteBatch batch = firestore.batch();
 
-            createAndSaveOrder(orderDTO, regularItems, 0, regularOrderId, preOrderId);
-            createAndSaveOrder(orderDTO, preOrderItems, 3, preOrderId, regularOrderId);
+        Order parentOrder = createParentOrder(orderDTO);
+        List<String> childOrderIds = new ArrayList<>();
+
+        if (shouldSplit) {
+            String regularChildId = "child_" + UUID.randomUUID().toString();
+            childOrderIds.add(regularChildId);
+            createChildOrder(batch, parentOrder.getId(), regularChildId, regularItems, 0);
+
+            String preOrderChildId = "child_" + UUID.randomUUID().toString();
+            childOrderIds.add(preOrderChildId);
+            createChildOrder(batch, parentOrder.getId(), preOrderChildId, preOrderItems, 3);
+
         } else {
+            String childId = "child_" + UUID.randomUUID().toString();
+            childOrderIds.add(childId);
             int status = preOrderItems.isEmpty() ? 0 : 3;
-            createAndSaveOrder(orderDTO, allItems, status, UUID.randomUUID().toString(), null);
+            createChildOrder(batch, parentOrder.getId(), childId, allItems, status);
+        }
+
+        parentOrder.setChildOrderIds(childOrderIds);
+        DocumentReference parentRef = firestore.collection("orders").document(parentOrder.getId());
+        batch.set(parentRef, parentOrder);
+
+        batch.commit().get();
+
+        // Operazioni post-commit
+        brevoEmailService.sendOrderConfirmationEmail(parentOrder, getChildOrders(parentOrder.getId()));
+
+        List<Map<String, Object>> itemsToUpdateStock = shouldSplit ? allItems : allItems;
+        for (Map<String, Object> item : itemsToUpdateStock) {
+            productService.decreaseStock((String) item.get("id"), ((Number) item.get("quantity")).intValue());
         }
     }
 
-    private void createAndSaveOrder(OrderDTO baseDto, List<Map<String, Object>> items, int status, String orderId, String siblingOrderId) {
-        if (items.isEmpty()) {
-            return;
-        }
-
-        Order order = new Order();
-        order.setId(orderId);
-        order.setSiblingOrderId(siblingOrderId);
+    private Order createParentOrder(OrderDTO dto) {
+        Order parent = new Order();
+        parent.setId("ord_" + UUID.randomUUID());
+        parent.setType("PARENT");
+        parent.setCreatedAt(Timestamp.now());
 
         // Dati cliente
-        order.setFullName(baseDto.getFullName());
-        order.setEmail(baseDto.getEmail());
-        order.setPhone(baseDto.getPhone());
-        order.setAddress(baseDto.getAddress());
-        order.setCity(baseDto.getCity());
-        order.setProvince(baseDto.getProvince());
-        order.setPostalCode(baseDto.getPostalCode());
-        order.setCountry(baseDto.getCountry());
-        order.setNewsletterSubscribed(baseDto.isNewsletterSubscribed());
-        order.setOrderNotes(baseDto.getOrderNotes());
+        parent.setFullName(dto.getFullName());
+        parent.setEmail(dto.getEmail());
+        parent.setPhone(dto.getPhone());
+        parent.setAddress(dto.getAddress());
+        parent.setCity(dto.getCity());
+        parent.setProvince(dto.getProvince());
+        parent.setPostalCode(dto.getPostalCode());
+        parent.setCountry(dto.getCountry());
+        parent.setNewsletterSubscribed(dto.isNewsletterSubscribed());
+        parent.setOrderNotes(dto.getOrderNotes());
 
-        // Dati ordine
-        order.setShipmentPreference(baseDto.getShipmentPreference());
-        order.setCreatedAt(Timestamp.now());
-        order.setStatus(String.valueOf(status));
+        // Dati finanziari
+        parent.setSubtotal(dto.getSubtotal());
+        parent.setShippingCost(dto.getShippingCost());
+        parent.setDiscount(dto.getDiscount());
+        parent.setCouponCode(dto.getCouponCode());
+
+        parent.setShipmentPreference(dto.getShipmentPreference());
+        // Lo stato del padre potrebbe essere una logica aggregata, per ora lo lasciamo semplice
+        parent.setStatus("PROCESSING");
+
+        return parent;
+    }
+
+    private void createChildOrder(WriteBatch batch, String parentId, String childId, List<Map<String, Object>> items, int status) {
+        if (items.isEmpty()) return;
+
+        Order child = new Order();
+        child.setId(childId);
+        child.setType("CHILD");
+        child.setParentOrderId(parentId);
+        child.setCreatedAt(Timestamp.now());
+        child.setStatus(String.valueOf(status));
 
         try {
-            order.setItems(objectMapper.writeValueAsString(items));
+            child.setItems(objectMapper.writeValueAsString(items));
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Errore durante la serializzazione degli articoli dell'ordine", e);
+            throw new RuntimeException("Errore serializzazione articoli per ordine figlio", e);
         }
 
-        // Riepilogo finanziario
-        double originalSubtotalForThisOrder = items.stream()
+        double originalSubtotal = items.stream()
                 .mapToDouble(item -> ((Number) item.get("price")).doubleValue() * ((Number) item.get("quantity")).intValue())
                 .sum();
-        order.setOriginalSubtotal(originalSubtotalForThisOrder);
+        child.setOriginalSubtotal(originalSubtotal);
 
-        // Duplicazione dei dati finanziari globali come da richiesta
-        order.setSubtotal(baseDto.getSubtotal());
-        order.setShippingCost(baseDto.getShippingCost());
-        order.setDiscount(baseDto.getDiscount());
-        order.setCouponCode(baseDto.getCouponCode());
-
-        try {
-            firestore.collection("orders").document(order.getId()).set(order).get();
-
-            for (Map<String, Object> item : items) {
-                String productId = (String) item.get("id");
-                int quantity = ((Number) item.get("quantity")).intValue();
-                productService.decreaseStock(productId, quantity);
-            }
-
-            brevoEmailService.sendOrderConfirmationEmail(order);
-
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Fallimento nel salvataggio dell'ordine o aggiornamento stock per l'ordine ID: " + order.getId(), e);
-        }
+        DocumentReference childRef = firestore.collection("orders").document(childId);
+        batch.set(childRef, child);
     }
 
-    public Order updateOrderStatus(String orderId, int newStatus) throws ExecutionException, InterruptedException {
+    public List<Order> getParentOrders(Integer status) throws ExecutionException, InterruptedException {
+        Query query = firestore.collection("orders")
+                .whereEqualTo("type", "PARENT")
+                .orderBy("createdAt", Query.Direction.DESCENDING);
+
+        if (status != null) {
+            // Nota: per ora questo filtra sullo stato del padre, che è generico.
+            // Una logica più fine richiederebbe di interrogare lo stato dei figli.
+            // query = query.whereEqualTo("status", String.valueOf(status));
+        }
+
+        return query.get().get().getDocuments().stream()
+                .map(doc -> doc.toObject(Order.class))
+                .collect(Collectors.toList());
+    }
+
+    public Order getParentOrderWithChildren(String parentId) throws ExecutionException, InterruptedException {
+        DocumentSnapshot parentDoc = firestore.collection("orders").document(parentId).get().get();
+        if (!parentDoc.exists() || !"PARENT".equals(parentDoc.getString("type"))) {
+            throw new RuntimeException("Ordine padre non trovato con ID: " + parentId);
+        }
+        Order parentOrder = parentDoc.toObject(Order.class);
+        // La lista degli ID dei figli è già nel padre, non la carichiamo qui ma la usiamo
+        return parentOrder;
+    }
+
+    public List<Order> getChildOrders(String parentId) throws ExecutionException, InterruptedException {
+        return firestore.collection("orders")
+                .whereEqualTo("parentOrderId", parentId)
+                .get().get().getDocuments().stream()
+                .map(doc -> doc.toObject(Order.class))
+                .collect(Collectors.toList());
+    }
+
+    public Order updateShipmentStatus(String shipmentId, int newStatus) throws ExecutionException, InterruptedException {
         if (newStatus < 0 || newStatus > 3) {
-            throw new IllegalArgumentException("Lo stato dell'ordine non è valido.");
+            throw new IllegalArgumentException("Lo stato della spedizione non è valido.");
         }
 
-        DocumentReference orderRef = firestore.collection("orders").document(orderId);
+        DocumentReference shipmentRef = firestore.collection("orders").document(shipmentId);
+        DocumentSnapshot shipmentDoc = shipmentRef.get().get();
 
-        if (!orderRef.get().get().exists()) {
-            throw new RuntimeException("Ordine non trovato con ID: " + orderId);
+        if (!shipmentDoc.exists() || !"CHILD".equals(shipmentDoc.getString("type"))) {
+            throw new RuntimeException("Spedizione (ordine figlio) non trovata con ID: " + shipmentId);
         }
 
-        ApiFuture<WriteResult> updateFuture = orderRef.update("status", String.valueOf(newStatus));
-        updateFuture.get();
+        shipmentRef.update("status", String.valueOf(newStatus)).get();
 
-        DocumentSnapshot updatedDocument = orderRef.get().get();
-        return updatedDocument.toObject(Order.class);
+        // Potremmo voler aggiornare lo stato aggregato del padre qui
+
+        return shipmentRef.get().get().toObject(Order.class);
     }
 
-    public Order updateOrderDetails(String orderId, OrderDTO orderDetails) throws ExecutionException, InterruptedException {
-        DocumentReference orderRef = firestore.collection("orders").document(orderId);
-        DocumentSnapshot document = orderRef.get().get();
-        if (!document.exists()) {
-            throw new RuntimeException("Ordine non trovato con ID: " + orderId);
+    public void deleteOrder(String parentId) throws ExecutionException, InterruptedException {
+        DocumentSnapshot parentDoc = firestore.collection("orders").document(parentId).get().get();
+        if (!parentDoc.exists() || !"PARENT".equals(parentDoc.getString("type"))) {
+            throw new RuntimeException("Ordine padre non trovato con ID: " + parentId);
         }
-        Map<String, Object> updates = new HashMap<>();
-        if (orderDetails.getFullName() != null) {
-            updates.put("fullName", orderDetails.getFullName());
-        }
-        // ... (altri campi)
-        if (!updates.isEmpty()) {
-            orderRef.update(updates).get();
-        }
-        return orderRef.get().get().toObject(Order.class);
-    }
 
-    public void deleteOrder(String orderId) throws ExecutionException, InterruptedException {
-        DocumentReference orderRef = firestore.collection("orders").document(orderId);
-        if (!orderRef.get().get().exists()) {
-            throw new RuntimeException("Ordine non trovato con ID: " + orderId);
+        List<String> childIds = (List<String>) parentDoc.get("childOrderIds");
+
+        WriteBatch batch = firestore.batch();
+
+        if (childIds != null) {
+            for (String childId : childIds) {
+                batch.delete(firestore.collection("orders").document(childId));
+            }
         }
-        orderRef.delete().get();
+        batch.delete(firestore.collection("orders").document(parentId));
+
+        batch.commit().get();
     }
 }

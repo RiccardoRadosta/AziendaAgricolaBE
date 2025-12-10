@@ -9,10 +9,7 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -21,7 +18,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/api")
 public class OrderController {
 
     private final OrderService orderService;
@@ -34,7 +31,7 @@ public class OrderController {
         this.objectMapper = objectMapper;
     }
 
-    @PostMapping("/charge")
+    @PostMapping("/orders/charge")
     public ResponseEntity<Map<String, String>> chargeOrder(@RequestBody OrderDTO orderDTO) {
         try {
             List<Map<String, Object>> items = objectMapper.readValue(orderDTO.getItems(), new TypeReference<List<Map<String, Object>>>() {});
@@ -73,7 +70,6 @@ public class OrderController {
             Map<String, String> response = new HashMap<>();
             response.put("error", e.getLocalizedMessage() != null ? e.getLocalizedMessage() : "An unknown error occurred with Stripe.");
             response.put("code", e.getCode());
-            response.put("request-id", e.getRequestId());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 
         } catch (IOException | ExecutionException | InterruptedException e) {
@@ -83,7 +79,7 @@ public class OrderController {
         }
     }
 
-    @PostMapping("/create")
+    @PostMapping("/orders/create")
     public ResponseEntity<Map<String, String>> createOrder(@RequestBody OrderDTO orderDTO) {
         try {
             orderService.createOrder(orderDTO);
@@ -94,6 +90,64 @@ public class OrderController {
             Map<String, String> response = new HashMap<>();
             response.put("error", "Failed to create order in database: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @GetMapping("/orders")
+    public ResponseEntity<List<Order>> getOrders(@RequestParam(required = false) Integer status) {
+        try {
+            List<Order> parentOrders = orderService.getParentOrders(status);
+            return ResponseEntity.ok(parentOrders);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/orders/{id}")
+    public ResponseEntity<Map<String, Object>> getOrderDetails(@PathVariable String id) {
+        try {
+            Order parentOrder = orderService.getParentOrderWithChildren(id);
+            List<Order> childOrders = orderService.getChildOrders(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("parent", parentOrder);
+            response.put("shipments", childOrders);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PutMapping("/shipments/{id}/status")
+    public ResponseEntity<Order> updateShipmentStatus(@PathVariable String id, @RequestBody Map<String, Integer> body) {
+        try {
+            Integer newStatus = body.get("status");
+            if (newStatus == null) {
+                return ResponseEntity.badRequest().build();
+            }
+            Order updatedShipment = orderService.updateShipmentStatus(id, newStatus);
+            return ResponseEntity.ok(updatedShipment);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @DeleteMapping("/orders/{id}")
+    public ResponseEntity<Void> deleteOrder(@PathVariable String id) {
+        try {
+            orderService.deleteOrder(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }
