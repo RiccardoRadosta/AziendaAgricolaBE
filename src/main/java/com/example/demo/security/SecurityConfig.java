@@ -30,6 +30,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/orders/create").permitAll()
                 .requestMatchers("/api/newsletter/subscribe").permitAll()
                 .requestMatchers("/api/admin/login").permitAll()
+                .requestMatchers("/api/settings/public").permitAll() // <-- REGOlA RIPRISTINATA
+                .requestMatchers("/api/coupons/**").permitAll() // <-- REGOlA RIPRISTINATA
 
                 // Endpoints Protetti (richiedono token admin)
                 .requestMatchers(HttpMethod.POST, "/api/products").authenticated()
@@ -38,12 +40,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders/**").authenticated()
-                .requestMatchers(HttpMethod.PUT, "/api/orders/**").authenticated() // <-- REGOlA AGGIUNTA
+                .requestMatchers(HttpMethod.PUT, "/api/orders/**").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/shipments/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/orders/**").authenticated()
 
-                // Nega tutto il resto se non specificato
-                .anyRequest().denyAll()
+                // Nega tutto il resto per sicurezza (se non matchato sopra)
+                .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
