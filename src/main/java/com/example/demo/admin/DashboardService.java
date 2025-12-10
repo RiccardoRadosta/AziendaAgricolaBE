@@ -6,6 +6,7 @@ import com.example.demo.order.Order;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.Query;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -18,7 +19,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,21 +34,28 @@ public class DashboardService {
     }
 
     public DashboardStatsDTO getDashboardStats() throws ExecutionException, InterruptedException {
-        List<Order> allOrders = firestore.collection("orders").get().get().getDocuments()
-                .stream().map(doc -> doc.toObject(Order.class)).collect(Collectors.toList());
+        // 1. Recupera solo gli ordini PADRE per le statistiche finanziarie
+        List<Order> parentOrders = firestore.collection("orders")
+                .whereEqualTo("type", "PARENT")
+                .get().get().toObjects(Order.class);
 
-        // Calcoli per periodo
-        double revenueToday = calculateTotalRevenue(allOrders, order -> isToday(order.getCreatedAt().toDate()));
-        long ordersToday = countOrders(allOrders, order -> isToday(order.getCreatedAt().toDate()));
+        // 2. Recupera solo gli ordini FIGLIO per l'analisi dei prodotti
+        List<Order> childOrders = firestore.collection("orders")
+                .whereEqualTo("type", "CHILD")
+                .get().get().toObjects(Order.class);
 
-        double revenueThisWeek = calculateTotalRevenue(allOrders, order -> isThisWeek(order.getCreatedAt().toDate()));
-        long ordersThisWeek = countOrders(allOrders, order -> isThisWeek(order.getCreatedAt().toDate()));
+        // Calcoli basati sugli ordini PADRE
+        double revenueToday = calculateTotalRevenue(parentOrders, order -> isToday(order.getCreatedAt().toDate()));
+        long ordersToday = countOrders(parentOrders, order -> isToday(order.getCreatedAt().toDate()));
 
-        double revenueThisMonth = calculateTotalRevenue(allOrders, order -> isThisMonth(order.getCreatedAt().toDate()));
-        long ordersThisMonth = countOrders(allOrders, order -> isThisMonth(order.getCreatedAt().toDate()));
+        double revenueThisWeek = calculateTotalRevenue(parentOrders, order -> isThisWeek(order.getCreatedAt().toDate()));
+        long ordersThisWeek = countOrders(parentOrders, order -> isThisWeek(order.getCreatedAt().toDate()));
 
-        // Calcolo prodotti più venduti
-        List<TopProductDTO> topSellingProducts = calculateTopSellingProducts(allOrders);
+        double revenueThisMonth = calculateTotalRevenue(parentOrders, order -> isThisMonth(order.getCreatedAt().toDate()));
+        long ordersThisMonth = countOrders(parentOrders, order -> isThisMonth(order.getCreatedAt().toDate()));
+
+        // Calcolo prodotti più venduti basato sugli ordini FIGLIO
+        List<TopProductDTO> topSellingProducts = calculateTopSellingProducts(childOrders);
 
         // Costruzione del DTO di risposta
         DashboardStatsDTO stats = new DashboardStatsDTO();
@@ -62,28 +70,27 @@ public class DashboardService {
         return stats;
     }
 
-    private double calculateTotalRevenue(List<Order> orders, Function<Order, Boolean> filter) {
-        return orders.stream()
-                .filter(filter::apply)
-                .mapToDouble(Order::getSubtotal)
+    private double calculateTotalRevenue(List<Order> parentOrders, Predicate<Order> filter) {
+        return parentOrders.stream()
+                .filter(filter)
+                .mapToDouble(Order::getSubtotal) // Ora questo è sicuro perché usiamo solo ordini PADRE
                 .sum();
     }
 
-    private long countOrders(List<Order> orders, Function<Order, Boolean> filter) {
-        return orders.stream()
-                .filter(filter::apply)
-                .count();
+    private long countOrders(List<Order> parentOrders, Predicate<Order> filter) {
+        return parentOrders.stream()
+                .filter(filter)
+                .count(); // Il conteggio ora è corretto
     }
 
-    private List<TopProductDTO> calculateTopSellingProducts(List<Order> orders) {
-        return orders.stream()
+    private List<TopProductDTO> calculateTopSellingProducts(List<Order> childOrders) {
+        return childOrders.stream()
             .filter(order -> order.getItems() != null && !order.getItems().isEmpty())
             .flatMap(order -> {
                 try {
                     List<Map<String, Object>> items = objectMapper.readValue(order.getItems(), new TypeReference<List<Map<String, Object>>>() {});
                     return items.stream();
                 } catch (IOException e) {
-                    // Log the error or handle it appropriately
                     return Collections.<Map<String, Object>>emptyList().stream();
                 }
             })
@@ -97,7 +104,6 @@ public class DashboardService {
             .map(entry -> new TopProductDTO(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList());
     }
-
 
     // --- Funzioni di utilità per il confronto di date ---
 
