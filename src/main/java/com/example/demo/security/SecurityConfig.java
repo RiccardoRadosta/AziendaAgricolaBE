@@ -23,19 +23,26 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // Regole specifiche per i prodotti
-                .requestMatchers(HttpMethod.GET, "/api/products").permitAll() // Chiunque può vedere i prodotti
-                .requestMatchers(HttpMethod.POST, "/api/products").authenticated() // Solo admin può creare
-                .requestMatchers(HttpMethod.PUT, "/api/products/**").authenticated() // Solo admin può aggiornare
-                .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated() // Solo admin può eliminare
-
-                // Altre regole esistenti
+                // Endpoints Pubblici (accessibili a tutti)
+                .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                .requestMatchers("/api/orders/charge").permitAll() 
+                .requestMatchers("/api/orders/create").permitAll()
+                .requestMatchers("/api/newsletter/subscribe").permitAll()
                 .requestMatchers("/api/admin/login").permitAll()
-                .requestMatchers("/api/orders/**", "/api/newsletter/**").permitAll()
+
+                // Endpoints Protetti (richiedono token admin)
+                .requestMatchers(HttpMethod.POST, "/api/products").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/products/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated()
                 .requestMatchers("/api/admin/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/orders").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/orders/**").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/shipments/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/orders/**").authenticated()
                 
-                // Catch-all per tutte le altre richieste (se necessario, ma meglio essere espliciti)
-                .anyRequest().permitAll()
+                // Nega tutto il resto se non specificato
+                .anyRequest().denyAll()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
