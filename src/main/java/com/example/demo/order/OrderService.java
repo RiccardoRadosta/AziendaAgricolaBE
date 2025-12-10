@@ -1,5 +1,6 @@
 package com.example.demo.order;
 
+import com.example.demo.order.dto.OrderCustomerUpdateDTO;
 import com.example.demo.product.ProductService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -152,14 +154,14 @@ public class OrderService {
         Query query = firestore.collection("orders").whereEqualTo("type", "PARENT");
 
         if (status != null) {
-            // Questa logica di filtro potrebbe non essere accurata poichè lo stato del padre è generico.
-            // Per un filtro preciso, si dovrebbe interrogare lo stato dei figli.
+            // Filter logic might be inaccurate as parent status is generic.
+            // For precise filtering, one should query the children's status.
             // query = query.whereEqualTo("status", String.valueOf(status));
         }
 
         List<Order> orders = query.get().get().toObjects(Order.class);
 
-        // Ordina in memoria per data di creazione, dal più recente al meno recente
+        // Sort in memory by creation date, newest to oldest
         return orders.stream()
                 .sorted(Comparator.comparing(Order::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
@@ -168,7 +170,7 @@ public class OrderService {
     public Order getParentOrderWithChildren(String parentId) throws ExecutionException, InterruptedException {
         DocumentSnapshot parentDoc = firestore.collection("orders").document(parentId).get().get();
         if (!parentDoc.exists() || !"PARENT".equals(parentDoc.getString("type"))) {
-            throw new RuntimeException("Ordine padre non trovato con ID: " + parentId);
+            throw new RuntimeException("Parent order not found with ID: " + parentId);
         }
         return parentDoc.toObject(Order.class);
     }
@@ -181,16 +183,39 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    public Order updateOrderCustomerDetails(String orderId, OrderCustomerUpdateDTO dto) throws ExecutionException, InterruptedException {
+        DocumentReference orderRef = firestore.collection("orders").document(orderId);
+        DocumentSnapshot orderDoc = orderRef.get().get();
+
+        if (!orderDoc.exists() || !"PARENT".equals(orderDoc.getString("type"))) {
+            throw new RuntimeException("Parent order not found with ID: " + orderId);
+        }
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("fullName", dto.getFullName());
+        updates.put("email", dto.getEmail());
+        updates.put("phone", dto.getPhone());
+        updates.put("address", dto.getAddress());
+        updates.put("city", dto.getCity());
+        updates.put("province", dto.getProvince());
+        updates.put("postalCode", dto.getPostalCode());
+        updates.put("country", dto.getCountry());
+        updates.put("orderNotes", dto.getOrderNotes());
+
+        orderRef.update(updates).get();
+        return orderRef.get().get().toObject(Order.class);
+    }
+
     public Order updateShipmentStatus(String shipmentId, int newStatus) throws ExecutionException, InterruptedException {
         if (newStatus < 0 || newStatus > 3) {
-            throw new IllegalArgumentException("Lo stato della spedizione non è valido.");
+            throw new IllegalArgumentException("Invalid shipment status.");
         }
 
         DocumentReference shipmentRef = firestore.collection("orders").document(shipmentId);
         DocumentSnapshot shipmentDoc = shipmentRef.get().get();
 
         if (!shipmentDoc.exists() || !"CHILD".equals(shipmentDoc.getString("type"))) {
-            throw new RuntimeException("Spedizione (ordine figlio) non trovata con ID: " + shipmentId);
+            throw new RuntimeException("Shipment (child order) not found with ID: " + shipmentId);
         }
 
         shipmentRef.update("status", String.valueOf(newStatus)).get();
@@ -200,7 +225,7 @@ public class OrderService {
     public void deleteOrder(String parentId) throws ExecutionException, InterruptedException {
         DocumentSnapshot parentDoc = firestore.collection("orders").document(parentId).get().get();
         if (!parentDoc.exists() || !"PARENT".equals(parentDoc.getString("type"))) {
-            throw new RuntimeException("Ordine padre non trovato con ID: " + parentId);
+            throw new RuntimeException("Parent order not found with ID: " + parentId);
         }
 
         List<String> childIds = (List<String>) parentDoc.get("childOrderIds");

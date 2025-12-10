@@ -1,5 +1,6 @@
 package com.example.demo.order;
 
+import com.example.demo.order.dto.OrderCustomerUpdateDTO;
 import com.example.demo.product.InsufficientStockException;
 import com.example.demo.product.ProductService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -116,6 +117,18 @@ public class OrderController {
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
              return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PutMapping("/orders/{id}")
+    public ResponseEntity<Order> updateOrderDetails(@PathVariable String id, @RequestBody OrderCustomerUpdateDTO dto) {
+        try {
+            Order updatedOrder = orderService.updateOrderCustomerDetails(id, dto);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
