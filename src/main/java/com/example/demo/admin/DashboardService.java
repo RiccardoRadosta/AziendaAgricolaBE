@@ -3,13 +3,17 @@ package com.example.demo.admin;
 import com.example.demo.admin.dto.DashboardStatsDTO;
 import com.example.demo.admin.dto.TopProductDTO;
 import com.example.demo.order.Order;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.firestore.Firestore;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -21,9 +25,11 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     private final Firestore firestore;
+    private final ObjectMapper objectMapper;
 
-    public DashboardService(Firestore firestore) {
+    public DashboardService(Firestore firestore, ObjectMapper objectMapper) {
         this.firestore = firestore;
+        this.objectMapper = objectMapper;
     }
 
     public DashboardStatsDTO getDashboardStats() throws ExecutionException, InterruptedException {
@@ -31,14 +37,14 @@ public class DashboardService {
                 .stream().map(doc -> doc.toObject(Order.class)).collect(Collectors.toList());
 
         // Calcoli per periodo
-        double revenueToday = calculateTotalRevenue(allOrders, order -> isToday(order.getOrderDate()));
-        long ordersToday = countOrders(allOrders, order -> isToday(order.getOrderDate()));
+        double revenueToday = calculateTotalRevenue(allOrders, order -> isToday(order.getCreatedAt().toDate()));
+        long ordersToday = countOrders(allOrders, order -> isToday(order.getCreatedAt().toDate()));
 
-        double revenueThisWeek = calculateTotalRevenue(allOrders, order -> isThisWeek(order.getOrderDate()));
-        long ordersThisWeek = countOrders(allOrders, order -> isThisWeek(order.getOrderDate()));
+        double revenueThisWeek = calculateTotalRevenue(allOrders, order -> isThisWeek(order.getCreatedAt().toDate()));
+        long ordersThisWeek = countOrders(allOrders, order -> isThisWeek(order.getCreatedAt().toDate()));
 
-        double revenueThisMonth = calculateTotalRevenue(allOrders, order -> isThisMonth(order.getOrderDate()));
-        long ordersThisMonth = countOrders(allOrders, order -> isThisMonth(order.getOrderDate()));
+        double revenueThisMonth = calculateTotalRevenue(allOrders, order -> isThisMonth(order.getCreatedAt().toDate()));
+        long ordersThisMonth = countOrders(allOrders, order -> isThisMonth(order.getCreatedAt().toDate()));
 
         // Calcolo prodotti più venduti
         List<TopProductDTO> topSellingProducts = calculateTopSellingProducts(allOrders);
@@ -71,23 +77,23 @@ public class DashboardService {
 
     private List<TopProductDTO> calculateTopSellingProducts(List<Order> orders) {
         return orders.stream()
-            // Filtra ordini senza items per evitare NullPointerException
             .filter(order -> order.getItems() != null && !order.getItems().isEmpty())
-            // Appiattisce la lista di liste di prodotti in un unico stream di prodotti
-            .flatMap(order -> order.getItems().stream())
-            // Converte ogni oggetto prodotto (che è una Map) in modo sicuro
-            .map(item -> (Map<String, Object>) item)
-            // Raggruppa per nome e somma le quantità
+            .flatMap(order -> {
+                try {
+                    List<Map<String, Object>> items = objectMapper.readValue(order.getItems(), new TypeReference<List<Map<String, Object>>>() {});
+                    return items.stream();
+                } catch (IOException e) {
+                    // Log the error or handle it appropriately
+                    return Collections.<Map<String, Object>>emptyList().stream();
+                }
+            })
             .collect(Collectors.groupingBy(
                 itemMap -> (String) itemMap.get("name"),
                 Collectors.summingInt(itemMap -> ((Number) itemMap.get("quantity")).intValue())
             ))
             .entrySet().stream()
-            // Ordina per quantità venduta in modo decrescente
             .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-            // Prende i primi 5
             .limit(5)
-            // Mappa il risultato nel DTO
             .map(entry -> new TopProductDTO(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList());
     }

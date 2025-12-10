@@ -1,13 +1,15 @@
 package com.example.demo.order;
 
-import java.util.Date;
-import java.util.List;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.annotation.DocumentId;
+import lombok.Data;
 
+@Data
 public class Order {
-
+    @DocumentId
     private String id;
 
-    // Customer Details
+    // Dati del cliente
     private String fullName;
     private String email;
     private String phone;
@@ -19,146 +21,18 @@ public class Order {
     private boolean newsletterSubscribed;
     private String orderNotes;
 
-    // Order Details
-    private List<Object> items; // Modificato
-    private double subtotal;
-    private Date orderDate;
+    // Dati dell'ordine
+    private String items; // Es. JSON o stringa formattata con i prodotti
+    private double subtotal; // Totale finale pagato
     private String shipmentPreference;
+    private String status;
 
-    // Order Status
-    // 0 = ordinato/in preparazione, 1 = spedito, 2 = consegnato, 3 = prevendita
-    private int orderStatus;
+    // Riepilogo finanziario
+    private double shippingCost;
+    private double discount;
+    private String couponCode;
+    private double originalSubtotal; // Subtotale dei soli prodotti
 
-    public Order() {
-    }
-
-    // Getters and Setters
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-
-    public String getCity() {
-        return city;
-    }
-
-    public void setCity(String city) {
-        this.city = city;
-    }
-
-    public String getProvince() {
-        return province;
-    }
-
-    public void setProvince(String province) {
-        this.province = province;
-    }
-
-    public String getPostalCode() {
-        return postalCode;
-    }
-
-    public void setPostalCode(String postalCode) {
-        this.postalCode = postalCode;
-    }
-
-    public String getCountry() {
-        return country;
-    }
-
-    public void setCountry(String country) {
-        this.country = country;
-    }
-
-    public boolean isNewsletterSubscribed() {
-        return newsletterSubscribed;
-    }
-
-    public void setNewsletterSubscribed(boolean newsletterSubscribed) {
-        this.newsletterSubscribed = newsletterSubscribed;
-    }
-
-    public String getOrderNotes() {
-        return orderNotes;
-    }
-
-    public void setOrderNotes(String orderNotes) {
-        this.orderNotes = orderNotes;
-    }
-
-    public List<Object> getItems() {
-        return items;
-    }
-
-    public void setItems(List<Object> items) {
-        this.items = items;
-    }
-
-    public double getSubtotal() {
-        return subtotal;
-    }
-
-    public void setSubtotal(double subtotal) {
-        this.subtotal = subtotal;
-    }
-
-    public Date getOrderDate() {
-        return orderDate;
-    }
-
-    public void setOrderDate(Date orderDate) {
-        this.orderDate = orderDate;
-    }
-
-    public int getOrderStatus() {
-        return orderStatus;
-    }
-
-    public void setOrderStatus(int orderStatus) {
-        this.orderStatus = orderStatus;
-    }
-
-    public String getShipmentPreference() {
-        return shipmentPreference;
-    }
-
-    public void setShipmentPreference(String shipmentPreference) {
-        this.shipmentPreference = shipmentPreference;
-    }
+    // Timestamp
+    private Timestamp createdAt;
 }

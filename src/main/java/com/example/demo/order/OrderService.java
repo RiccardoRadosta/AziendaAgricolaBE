@@ -4,6 +4,7 @@ import com.example.demo.product.ProductService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiFuture;
+import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
@@ -38,10 +39,10 @@ public class OrderService {
     }
 
     public List<Order> getAllOrders(Integer status) throws ExecutionException, InterruptedException {
-        Query query = firestore.collection("orders").orderBy("orderDate", Query.Direction.DESCENDING);
+        Query query = firestore.collection("orders").orderBy("createdAt", Query.Direction.DESCENDING);
 
         if (status != null) {
-            query = query.whereEqualTo("orderStatus", status);
+            query = query.whereEqualTo("status", status);
         }
 
         List<QueryDocumentSnapshot> documents = query.get().get().getDocuments();
@@ -104,16 +105,16 @@ public class OrderService {
         order.setNewsletterSubscribed(baseDto.isNewsletterSubscribed());
         order.setOrderNotes(baseDto.getOrderNotes());
         order.setShipmentPreference(baseDto.getShipmentPreference());
-        order.setOrderDate(new Date());
-        order.setOrderStatus(status);
-        order.setItems(new ArrayList<>(items)); // <-- CORRECTED LINE
+        order.setCreatedAt(Timestamp.now());
+        order.setStatus(String.valueOf(status));
 
-        double subtotal = items.stream().mapToDouble(item -> {
-            double price = ((Number) item.get("price")).doubleValue();
-            int quantity = ((Number) item.get("quantity")).intValue();
-            return price * quantity;
-        }).sum();
-        order.setSubtotal(subtotal);
+        // Logica modificata come da richiesta
+        order.setItems(baseDto.getItems());
+        order.setSubtotal(baseDto.getSubtotal()); // Il totale finale pagato
+        order.setOriginalSubtotal(baseDto.getOriginalSubtotal()); // Il subtotale dei prodotti
+        order.setShippingCost(baseDto.getShippingCost());
+        order.setDiscount(baseDto.getDiscount());
+        order.setCouponCode(baseDto.getCouponCode());
 
         try {
             firestore.collection("orders").document(order.getId()).set(order).get();
@@ -144,7 +145,7 @@ public class OrderService {
             throw new RuntimeException("Ordine non trovato con ID: " + orderId);
         }
 
-        ApiFuture<WriteResult> updateFuture = orderRef.update("orderStatus", newStatus);
+        ApiFuture<WriteResult> updateFuture = orderRef.update("status", String.valueOf(newStatus));
         updateFuture.get();
 
         DocumentSnapshot updatedDocument = orderRef.get().get();
