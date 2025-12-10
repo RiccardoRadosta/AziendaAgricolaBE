@@ -26,6 +26,7 @@ public class Order {
     private double subtotal; // Totale finale pagato
     private String shipmentPreference;
     private String status;
+    private String siblingOrderId; // ID dell'ordine gemello per lo split
 
     // Riepilogo finanziario
     private double shippingCost;

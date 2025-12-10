@@ -79,21 +79,27 @@ public class OrderService {
         boolean shouldSplit = "split".equalsIgnoreCase(orderDTO.getShipmentPreference()) && !regularItems.isEmpty() && !preOrderItems.isEmpty();
 
         if (shouldSplit) {
-            createAndSaveOrder(orderDTO, regularItems, 0);
-            createAndSaveOrder(orderDTO, preOrderItems, 3);
+            String regularOrderId = UUID.randomUUID().toString();
+            String preOrderId = UUID.randomUUID().toString();
+
+            createAndSaveOrder(orderDTO, regularItems, 0, regularOrderId, preOrderId);
+            createAndSaveOrder(orderDTO, preOrderItems, 3, preOrderId, regularOrderId);
         } else {
             int status = preOrderItems.isEmpty() ? 0 : 3;
-            createAndSaveOrder(orderDTO, allItems, status);
+            createAndSaveOrder(orderDTO, allItems, status, UUID.randomUUID().toString(), null);
         }
     }
 
-    private void createAndSaveOrder(OrderDTO baseDto, List<Map<String, Object>> items, int status) {
+    private void createAndSaveOrder(OrderDTO baseDto, List<Map<String, Object>> items, int status, String orderId, String siblingOrderId) {
         if (items.isEmpty()) {
             return;
         }
 
         Order order = new Order();
-        order.setId(UUID.randomUUID().toString());
+        order.setId(orderId);
+        order.setSiblingOrderId(siblingOrderId);
+
+        // Dati cliente
         order.setFullName(baseDto.getFullName());
         order.setEmail(baseDto.getEmail());
         order.setPhone(baseDto.getPhone());
@@ -104,25 +110,25 @@ public class OrderService {
         order.setCountry(baseDto.getCountry());
         order.setNewsletterSubscribed(baseDto.isNewsletterSubscribed());
         order.setOrderNotes(baseDto.getOrderNotes());
+
+        // Dati ordine
         order.setShipmentPreference(baseDto.getShipmentPreference());
         order.setCreatedAt(Timestamp.now());
         order.setStatus(String.valueOf(status));
 
-        // CORREZIONE: Serializza solo la lista di articoli pertinenti a questo ordine (split).
         try {
             order.setItems(objectMapper.writeValueAsString(items));
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Errore durante la serializzazione degli articoli dell'ordine", e);
         }
 
-        // CORREZIONE: Ricalcola il subtotale dei prodotti per questo ordine specifico (split).
+        // Riepilogo finanziario
         double originalSubtotalForThisOrder = items.stream()
                 .mapToDouble(item -> ((Number) item.get("price")).doubleValue() * ((Number) item.get("quantity")).intValue())
                 .sum();
         order.setOriginalSubtotal(originalSubtotalForThisOrder);
 
-        // I campi finanziari globali della transazione (totale pagato, spedizione, sconto)
-        // vengono per ora mantenuti su entrambi gli ordini per registrare il pagamento unico.
+        // Duplicazione dei dati finanziari globali come da richiesta
         order.setSubtotal(baseDto.getSubtotal());
         order.setShippingCost(baseDto.getShippingCost());
         order.setDiscount(baseDto.getDiscount());
@@ -144,7 +150,6 @@ public class OrderService {
             throw new RuntimeException("Fallimento nel salvataggio dell'ordine o aggiornamento stock per l'ordine ID: " + order.getId(), e);
         }
     }
-
 
     public Order updateOrderStatus(String orderId, int newStatus) throws ExecutionException, InterruptedException {
         if (newStatus < 0 || newStatus > 3) {
