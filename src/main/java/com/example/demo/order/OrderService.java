@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -86,10 +87,9 @@ public class OrderService {
 
         batch.commit().get();
 
-        // Operazioni post-commit
         brevoEmailService.sendOrderConfirmationEmail(parentOrder, getChildOrders(parentOrder.getId()));
 
-        List<Map<String, Object>> itemsToUpdateStock = shouldSplit ? allItems : allItems;
+        List<Map<String, Object>> itemsToUpdateStock = shouldSplit ? regularItems : allItems;
         for (Map<String, Object> item : itemsToUpdateStock) {
             productService.decreaseStock((String) item.get("id"), ((Number) item.get("quantity")).intValue());
         }
@@ -101,7 +101,6 @@ public class OrderService {
         parent.setType("PARENT");
         parent.setCreatedAt(Timestamp.now());
 
-        // Dati cliente
         parent.setFullName(dto.getFullName());
         parent.setEmail(dto.getEmail());
         parent.setPhone(dto.getPhone());
@@ -113,14 +112,12 @@ public class OrderService {
         parent.setNewsletterSubscribed(dto.isNewsletterSubscribed());
         parent.setOrderNotes(dto.getOrderNotes());
 
-        // Dati finanziari
         parent.setSubtotal(dto.getSubtotal());
         parent.setShippingCost(dto.getShippingCost());
         parent.setDiscount(dto.getDiscount());
         parent.setCouponCode(dto.getCouponCode());
 
         parent.setShipmentPreference(dto.getShipmentPreference());
-        // Lo stato del padre potrebbe essere una logica aggregata, per ora lo lasciamo semplice
         parent.setStatus("PROCESSING");
 
         return parent;
@@ -152,18 +149,19 @@ public class OrderService {
     }
 
     public List<Order> getParentOrders(Integer status) throws ExecutionException, InterruptedException {
-        Query query = firestore.collection("orders")
-                .whereEqualTo("type", "PARENT")
-                .orderBy("createdAt", Query.Direction.DESCENDING);
+        Query query = firestore.collection("orders").whereEqualTo("type", "PARENT");
 
         if (status != null) {
-            // Nota: per ora questo filtra sullo stato del padre, che è generico.
-            // Una logica più fine richiederebbe di interrogare lo stato dei figli.
+            // Questa logica di filtro potrebbe non essere accurata poichè lo stato del padre è generico.
+            // Per un filtro preciso, si dovrebbe interrogare lo stato dei figli.
             // query = query.whereEqualTo("status", String.valueOf(status));
         }
 
-        return query.get().get().getDocuments().stream()
-                .map(doc -> doc.toObject(Order.class))
+        List<Order> orders = query.get().get().toObjects(Order.class);
+
+        // Ordina in memoria per data di creazione, dal più recente al meno recente
+        return orders.stream()
+                .sorted(Comparator.comparing(Order::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
     }
 
@@ -172,9 +170,7 @@ public class OrderService {
         if (!parentDoc.exists() || !"PARENT".equals(parentDoc.getString("type"))) {
             throw new RuntimeException("Ordine padre non trovato con ID: " + parentId);
         }
-        Order parentOrder = parentDoc.toObject(Order.class);
-        // La lista degli ID dei figli è già nel padre, non la carichiamo qui ma la usiamo
-        return parentOrder;
+        return parentDoc.toObject(Order.class);
     }
 
     public List<Order> getChildOrders(String parentId) throws ExecutionException, InterruptedException {
@@ -198,9 +194,6 @@ public class OrderService {
         }
 
         shipmentRef.update("status", String.valueOf(newStatus)).get();
-
-        // Potremmo voler aggiornare lo stato aggregato del padre qui
-
         return shipmentRef.get().get().toObject(Order.class);
     }
 
