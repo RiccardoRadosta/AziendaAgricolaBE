@@ -1,6 +1,7 @@
 package com.example.demo.order;
 
 import com.example.demo.product.ProductService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiFuture;
@@ -15,7 +16,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +42,7 @@ public class OrderService {
         Query query = firestore.collection("orders").orderBy("createdAt", Query.Direction.DESCENDING);
 
         if (status != null) {
-            query = query.whereEqualTo("status", status);
+            query = query.whereEqualTo("status", String.valueOf(status));
         }
 
         List<QueryDocumentSnapshot> documents = query.get().get().getDocuments();
@@ -108,10 +108,22 @@ public class OrderService {
         order.setCreatedAt(Timestamp.now());
         order.setStatus(String.valueOf(status));
 
-        // Logica modificata come da richiesta
-        order.setItems(baseDto.getItems());
-        order.setSubtotal(baseDto.getSubtotal()); // Il totale finale pagato
-        order.setOriginalSubtotal(baseDto.getOriginalSubtotal()); // Il subtotale dei prodotti
+        // CORREZIONE: Serializza solo la lista di articoli pertinenti a questo ordine (split).
+        try {
+            order.setItems(objectMapper.writeValueAsString(items));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Errore durante la serializzazione degli articoli dell'ordine", e);
+        }
+
+        // CORREZIONE: Ricalcola il subtotale dei prodotti per questo ordine specifico (split).
+        double originalSubtotalForThisOrder = items.stream()
+                .mapToDouble(item -> ((Number) item.get("price")).doubleValue() * ((Number) item.get("quantity")).intValue())
+                .sum();
+        order.setOriginalSubtotal(originalSubtotalForThisOrder);
+
+        // I campi finanziari globali della transazione (totale pagato, spedizione, sconto)
+        // vengono per ora mantenuti su entrambi gli ordini per registrare il pagamento unico.
+        order.setSubtotal(baseDto.getSubtotal());
         order.setShippingCost(baseDto.getShippingCost());
         order.setDiscount(baseDto.getDiscount());
         order.setCouponCode(baseDto.getCouponCode());
