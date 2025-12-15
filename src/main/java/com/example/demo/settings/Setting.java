@@ -12,6 +12,7 @@ public class Setting {
 
     private BigDecimal freeShippingThreshold;
     private BigDecimal standardShippingCost;
+    private BigDecimal splitShippingCost; // New field
 
     public Setting() {
         // Costruttore vuoto necessario per la deserializzazione di Firestore

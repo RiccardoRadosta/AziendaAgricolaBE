@@ -25,7 +25,8 @@ public class SettingsController {
             Setting settings = settingService.getSettings();
             Map<String, Object> publicSettings = Map.of(
                 "standardShippingCost", settings.getStandardShippingCost(),
-                "freeShippingThreshold", settings.getFreeShippingThreshold()
+                "freeShippingThreshold", settings.getFreeShippingThreshold(),
+                "splitShippingCost", settings.getSplitShippingCost() // Aggiunto il nuovo campo, usando Map.of
             );
             return ResponseEntity.ok(publicSettings);
         } catch (ExecutionException | InterruptedException e) {

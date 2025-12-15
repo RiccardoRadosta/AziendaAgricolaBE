@@ -6,6 +6,8 @@ import com.example.demo.newsletter.NewsletterService;
 import com.example.demo.order.Order;
 import com.example.demo.order.OrderService;
 import com.example.demo.security.JwtUtil;
+import com.example.demo.settings.Setting;
+import com.example.demo.settings.SettingService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ public class AdminController {
     private final CloudinaryService cloudinaryService;
     private final NewsletterService newsletterService;
     private final VercelAnalyticsService vercelAnalyticsService;
+    private final SettingService settingService; // Service iniettato
 
     @Value("${admin.username}")
     private String adminUsername;
@@ -36,13 +40,41 @@ public class AdminController {
     @Value("${admin.password}")
     private String adminPassword;
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService, SettingService settingService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
         this.dashboardService = dashboardService;
         this.cloudinaryService = cloudinaryService;
         this.newsletterService = newsletterService;
         this.vercelAnalyticsService = vercelAnalyticsService;
+        this.settingService = settingService; // Aggiunto al costruttore
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<?> updateSettings(@RequestBody Map<String, Object> updates) {
+        try {
+            Setting currentSettings = settingService.getSettings();
+
+            // Aggiorna i campi solo se presenti nella richiesta
+            if (updates.containsKey("standardShippingCost")) {
+                currentSettings.setStandardShippingCost(new BigDecimal(updates.get("standardShippingCost").toString()));
+            }
+            if (updates.containsKey("freeShippingThreshold")) {
+                currentSettings.setFreeShippingThreshold(new BigDecimal(updates.get("freeShippingThreshold").toString()));
+            }
+            if (updates.containsKey("splitShippingCost")) {
+                currentSettings.setSplitShippingCost(new BigDecimal(updates.get("splitShippingCost").toString()));
+            }
+
+            settingService.saveSettings(currentSettings);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Settings updated successfully."));
+
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", "Error updating settings: " + e.getMessage()));
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid number format in settings."));
+        }
     }
 
     @GetMapping("/analytics")
