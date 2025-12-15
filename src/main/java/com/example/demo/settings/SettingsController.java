@@ -6,7 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 @RestController
@@ -23,10 +25,16 @@ public class SettingsController {
     public ResponseEntity<Map<String, Object>> getPublicSettings() {
         try {
             Setting settings = settingService.getSettings();
+
+            // Applica i valori di default se quelli correnti sono null
+            BigDecimal standardShippingCost = Optional.ofNullable(settings.getStandardShippingCost()).orElse(new BigDecimal("30"));
+            BigDecimal freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO);
+            BigDecimal splitShippingCost = Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO);
+
             Map<String, Object> publicSettings = Map.of(
-                "standardShippingCost", settings.getStandardShippingCost(),
-                "freeShippingThreshold", settings.getFreeShippingThreshold(),
-                "splitShippingCost", settings.getSplitShippingCost() // Aggiunto il nuovo campo, usando Map.of
+                "standardShippingCost", standardShippingCost,
+                "freeShippingThreshold", freeShippingThreshold,
+                "splitShippingCost", splitShippingCost
             );
             return ResponseEntity.ok(publicSettings);
         } catch (ExecutionException | InterruptedException e) {
