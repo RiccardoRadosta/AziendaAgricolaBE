@@ -39,7 +39,6 @@ public class OrderController {
   public ResponseEntity<Map<String, String>> chargeOrder(
     @RequestBody OrderDTO orderDTO
   ) {
-    System.out.println("--- CHARGE ORDER ENDPOINT HIT ---");
     try {
       List<Map<String, Object>> items = objectMapper.readValue(
         orderDTO.getItems(),
@@ -50,10 +49,6 @@ public class OrderController {
       // Calcolo sicuro del totale lato server
       double serverTotal = orderService.calculateOrderTotal(orderDTO);
       double clientTotal = orderDTO.getSubtotal();
-
-      // Log per il debug
-      System.out.println("Server calculated total: " + serverTotal);
-      System.out.println("Client provided total: " + clientTotal);
 
       // Confronto con tolleranza per errori in virgola mobile
       if (Math.abs(serverTotal - clientTotal) > 0.01) {
@@ -123,7 +118,6 @@ public class OrderController {
   public ResponseEntity<Map<String, String>> createOrder(
     @RequestBody OrderDTO orderDTO
   ) {
-    System.out.println("--- CREATE ORDER ENDPOINT HIT ---");
     try {
       orderService.createOrder(orderDTO);
       Map<String, String> response = new HashMap<>();

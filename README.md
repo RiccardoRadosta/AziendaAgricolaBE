@@ -20,28 +20,35 @@ Questo progetto è un'applicazione Java basata su Spring Boot che fornisce un ba
 - **Autenticazione JWT**: L'accesso alle API di amministrazione è protetto tramite token JWT.
 - **Filtro di Sicurezza**: Un `JwtRequestFilter` intercetta ogni richiesta per validare il token JWT.
 
-### 2. Gestione Prodotti
+### 2. Politica di Sicurezza per i Pagamenti
+
+Per garantire la massima sicurezza e prevenire discrepanze, il sistema adotta una politica di verifica a due fasi per ogni transazione:
+
+- **Calcolo Autoritativo del Totale sul Backend**: Il frontend invia i dettagli dell'ordine, ma il calcolo finale del totale viene sempre eseguito sul backend. Questo previene manipolazioni del prezzo dal lato client.
+- **Confronto con Tolleranza**: Il totale calcolato dal server viene confrontato con quello inviato dal client. Per gestire le piccole e inevitabili imprecisioni dei calcoli in virgola mobile (comuni in JavaScript), il sistema accetta la transazione solo se la differenza assoluta tra i due totali è inferiore a una soglia minima (es. 0.01 EUR). Se la discrepanza è maggiore, la transazione viene rifiutata con un errore `409 Conflict`.
+
+### 3. Gestione Prodotti
 
 - **CRUD Completo**: API per creare, leggere, aggiornare ed eliminare i prodotti del catalogo.
 - **Sicurezza a livello di endpoint**: Le operazioni di modifica sono protette e richiedono autenticazione, mentre la lettura dei prodotti è pubblica.
 
-### 3. Gestione degli Ordini con Logica Padre-Figlio
+### 4. Gestione degli Ordini con Logica Padre-Figlio
 
 - **Struttura Padre-Figlio**: Un singolo acquisto del cliente genera un ordine **"padre"** che contiene i dati anagrafici, di contatto e finanziari totali. L'ordine padre è collegato a uno o più ordini **"figlio"**, che rappresentano le singole spedizioni.
 - **Separazione Spedizioni**: La logica di business separa automaticamente gli articoli in pre-ordine da quelli subito disponibili. Se l'utente sceglie l'opzione `split`, vengono creati ordini "figlio" multipli, permettendo una gestione indipendente dello stato di ogni spedizione.
 - **Integrazione con Stripe**: Utilizza Stripe per elaborare i pagamenti a livello di ordine "padre".
 
-### 4. Impostazioni di Sistema
+### 5. Impostazioni di Sistema
 
 - **Configurazione Dinamica**: API per gestire le impostazioni chiave dell'applicazione, come i costi di spedizione.
 - **Endpoint Pubblico e Privato**: Un endpoint pubblico per la lettura delle impostazioni da parte del frontend e un endpoint di amministrazione protetto per la loro modifica.
 - **Robustezza**: L'endpoint pubblico fornisce valori di default per garantire che il frontend riceva sempre dati validi, anche se le impostazioni non sono state configurate.
 
-### 5. Iscrizione alla Newsletter
+### 6. Iscrizione alla Newsletter
 
 - **API per l'Iscrizione**: Fornisce endpoint per consentire agli utenti di iscriversi e annullare l'iscrizione.
 
-### 6. Pannello di Amministrazione
+### 7. Pannello di Amministrazione
 
 - **Dashboard**: Un'area riservata per monitorare lo stato dell'applicazione.
 - **Gestione Impostazioni**: Permette di configurare i costi di spedizione (standard, soglia gratuita, spedizione divisa).
@@ -81,7 +88,7 @@ Il progetto è organizzato nei seguenti package:
 Il flusso di creazione di un ordine è separato in due fasi: pagamento e salvataggio.
 
 1.  **`POST /api/orders/charge`**: (Prima fase)
-    Crea un `PaymentIntent` con Stripe per autorizzare il pagamento. Verifica la disponibilità di magazzino prima di procedere.
+    Crea un `PaymentIntent` con Stripe per autorizzare il pagamento. Verifica la disponibilità di magazzino e il totale dell'ordine prima di procedere.
     - **Body**: `OrderDTO` contenente i dettagli dell'ordine e il `paymentToken` di Stripe.
     - **Risposta**: `clientSecret` per confermare il pagamento sul frontend.
 
