@@ -11,8 +11,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 import java.io.IOException;
+import java.time.Year;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +27,7 @@ public class BrevoEmailService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final TemplateEngine templateEngine;
 
     @Value("${brevo.api.key}")
     private String apiKey;
@@ -33,11 +38,51 @@ public class BrevoEmailService {
     @Value("${brevo.sender.email}")
     private String senderEmail;
 
-    public BrevoEmailService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public BrevoEmailService(RestTemplate restTemplate, ObjectMapper objectMapper, TemplateEngine templateEngine) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.templateEngine = templateEngine;
     }
 
+    public void sendOrderConfirmationEmail(Order parentOrder, List<Order> childOrders) {
+        final Context ctx = new Context();
+
+        // 1. Prepara i dati per il template
+        ctx.setVariable("customerName", parentOrder.getFullName());
+        ctx.setVariable("orderId", parentOrder.getId());
+        ctx.setVariable("currentYear", Year.now().getValue());
+
+        // Riepilogo finanziario
+        double productSubtotal = parentOrder.getSubtotal() - parentOrder.getShippingCost() + parentOrder.getDiscount();
+        ctx.setVariable("subtotal", String.format("%.2f", productSubtotal));
+        ctx.setVariable("shippingCost", String.format("%.2f", parentOrder.getShippingCost()));
+        ctx.setVariable("discount", String.format("%.2f", parentOrder.getDiscount()));
+        ctx.setVariable("total", String.format("%.2f", parentOrder.getSubtotal()));
+
+        // 2. Prepara la lista delle spedizioni in un formato leggibile dal template
+        List<Map<String, Object>> shipmentsForTemplate = new ArrayList<>();
+        for (Order shipment : childOrders) {
+            Map<String, Object> shipmentMap = new HashMap<>();
+            shipmentMap.put("status", getHumanReadableStatus(shipment.getStatus()));
+            try {
+                List<Map<String, Object>> items = objectMapper.readValue(shipment.getItems(), new TypeReference<>() {});
+                shipmentMap.put("items", items);
+            } catch (IOException e) {
+                shipmentMap.put("items", Collections.emptyList()); // Gestione errore
+            }
+            shipmentsForTemplate.add(shipmentMap);
+        }
+        ctx.setVariable("shipments", shipmentsForTemplate);
+
+        // 3. Processa il template Thymeleaf per ottenere l'HTML
+        final String htmlContent = this.templateEngine.process("email/order-confirmation-template", ctx);
+
+        // 4. Invia l'email con l'HTML generato
+        String subject = "Conferma d'ordine #" + parentOrder.getId();
+        sendEmail(parentOrder.getEmail(), subject, htmlContent);
+    }
+
+    // === FIX: Riportato il metodo a public per renderlo accessibile da altri servizi ===
     public void sendEmail(String toEmail, String subject, String htmlContent) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("api-key", apiKey);
@@ -73,48 +118,6 @@ public class BrevoEmailService {
         } catch (Exception e) {
             System.err.println("Errore generico durante l'invio dell'email a " + toEmail + ": " + e.getMessage());
         }
-    }
-
-    public void sendOrderConfirmationEmail(Order parentOrder, List<Order> childOrders) {
-        String subject = "Conferma d'ordine #" + parentOrder.getId();
-        String htmlContent = buildConfirmationHtml(parentOrder, childOrders);
-        sendEmail(parentOrder.getEmail(), subject, htmlContent);
-    }
-
-    private String buildConfirmationHtml(Order parent, List<Order> children) {
-        StringBuilder html = new StringBuilder();
-        html.append("<html><body>");
-        html.append("<h1>Grazie per il tuo acquisto, ").append(parent.getFullName()).append("!</h1>");
-        html.append("<p>Il tuo ordine <strong>#").append(parent.getId()).append("</strong> è stato confermato e verrà elaborato a breve.</p>");
-
-        for (int i = 0; i < children.size(); i++) {
-            Order shipment = children.get(i);
-            html.append("<h2>Spedizione ").append(i + 1).append(" di ").append(children.size()).append("</h2>");
-            html.append("<p>Stato: <strong>").append(getHumanReadableStatus(shipment.getStatus())).append("</strong></p>");
-            html.append("<ul>");
-
-            try {
-                List<Map<String, Object>> items = objectMapper.readValue(shipment.getItems(), new TypeReference<>() {});
-                for (Map<String, Object> item : items) {
-                    html.append("<li>").append(item.get("name")).append(" - Quantità: ").append(item.get("quantity")).append("</li>");
-                }
-            } catch (IOException e) {
-                html.append("<li>Errore nel leggere gli articoli della spedizione.</li>");
-            }
-
-            html.append("</ul>");
-        }
-
-        html.append("<h2>Riepilogo finanziario</h2>");
-        html.append("<p>Subtotale prodotti: ").append(String.format("%.2f", parent.getSubtotal() - parent.getShippingCost() + parent.getDiscount())).append(" €</p>");
-        html.append("<p>Costo spedizione: ").append(String.format("%.2f", parent.getShippingCost())).append(" €</p>");
-        if (parent.getDiscount() > 0) {
-            html.append("<p>Sconto applicato: - ").append(String.format("%.2f", parent.getDiscount())).append(" €</p>");
-        }
-        html.append("<h3>Totale pagato: ").append(String.format("%.2f", parent.getSubtotal())).append(" €</h3>");
-
-        html.append("</body></html>");
-        return html.toString();
     }
 
     private String getHumanReadableStatus(String status) {

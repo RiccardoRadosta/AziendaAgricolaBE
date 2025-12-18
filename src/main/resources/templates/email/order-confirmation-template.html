@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Conferma Ordine</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #dddddd;
+        }
+        .header {
+            background-color: #0046BF; /* Un blu aziendale, da cambiare */
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .content h2 {
+            color: #333333;
+            font-size: 20px;
+        }
+        .order-summary, .shipment-details {
+            margin-bottom: 30px;
+        }
+        .shipment-box {
+            border: 1px solid #eeeeee;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .shipment-box h3 {
+            margin-top: 0;
+            font-size: 18px;
+            border-bottom: 1px solid #eeeeee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .item-list {
+            list-style: none;
+            padding: 0;
+        }
+        .item-list li {
+            padding: 5px 0;
+        }
+        .financial-summary {
+            border-top: 2px solid #eeeeee;
+            padding-top: 20px;
+            margin-top: 30px;
+        }
+        .financial-summary p {
+            margin: 5px 0;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .financial-summary .total {
+            font-weight: bold;
+            font-size: 18px;
+            border-top: 1px solid #cccccc;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        .footer {
+            background-color: #f4f4f4;
+            color: #888888;
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Conferma Ordine</h1>
+        </div>
+        <div class="content">
+            <div class="order-summary">
+                <h2 th:text="'Grazie per il tuo acquisto, ' + ${customerName} + '!'">Grazie per il tuo acquisto!</h2>
+                <p>Il tuo ordine <strong th:text="'#' + ${orderId}">#ORD-123</strong> è stato confermato e verrà elaborato a breve.</p>
+            </div>
+
+            <!-- Loop per le spedizioni -->
+            <div class="shipment-details" th:each="shipment, iterStat : ${shipments}">
+                <div class="shipment-box">
+                    <h3 th:text="'Spedizione ' + ${iterStat.count} + ' di ' + ${#lists.size(shipments)}">Spedizione 1 di 1</h3>
+                    <p><strong>Stato:</strong> <span th:text="${shipment.status}">In preparazione</span></p>
+                    <h4>Articoli:</h4>
+                    <ul class="item-list">
+                        <li th:each="item : ${shipment.items}" th:text="${item.name} + ' - Quantità: ' + ${item.quantity}">Prodotto - Quantità: 1</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="financial-summary">
+                <h2>Riepilogo</h2>
+                <p><span>Subtotale prodotti</span> <span th:text="${subtotal} + ' €'">0.00 €</span></p>
+                <p><span>Costo spedizione</span> <span th:text="${shippingCost} + ' €'">0.00 €</span></p>
+                <p th:if="${discount > 0}"><span>Sconto</span> <span th:text="'-' + ${discount} + ' €'"> -0.00 €</span></p>
+                <p class="total"><span>Totale pagato</span> <span th:text="${total} + ' €'">0.00 €</span></p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>Azienda Agricola &copy; <span th:text="${currentYear}">2024</span>. Tutti i diritti riservati.</p>
+        </div>
+    </div>
+</body>
+</html>

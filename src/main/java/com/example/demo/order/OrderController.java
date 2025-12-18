@@ -50,12 +50,6 @@ public class OrderController {
       double serverTotal = orderService.calculateOrderTotal(orderDTO);
       double clientTotal = orderDTO.getSubtotal();
 
-      // LOGGING PER DEBUG
-      System.out.println("--- DEBUG TOTALI ORDINE ---");
-      System.out.println("Totale inviato dal Client: " + clientTotal);
-      System.out.println("Totale calcolato dal Server: " + serverTotal);
-      System.out.println("---------------------------");
-
       // Confronto con tolleranza per errori in virgola mobile
       if (Math.abs(serverTotal - clientTotal) > 0.01) {
         Map<String, String> response = new HashMap<>();
