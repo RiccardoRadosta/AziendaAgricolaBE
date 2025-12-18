@@ -1,7 +1,13 @@
 package com.example.demo.order;
 
+import com.example.demo.coupon.Coupon;
+import com.example.demo.coupon.CouponService;
+import com.example.demo.coupon.DiscountType;
 import com.example.demo.order.dto.OrderCustomerUpdateDTO;
+import com.example.demo.product.Product;
 import com.example.demo.product.ProductService;
+import com.example.demo.settings.Setting;
+import com.example.demo.settings.SettingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,17 +17,18 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.WriteBatch;
-import org.springframework.stereotype.Service;
-
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
 
 @Service
 public class OrderService {
@@ -30,12 +37,75 @@ public class OrderService {
     private final ObjectMapper objectMapper;
     private final BrevoEmailService brevoEmailService;
     private final ProductService productService;
+    private final SettingService settingService;
+    private final CouponService couponService;
 
-    public OrderService(Firestore firestore, BrevoEmailService brevoEmailService, ProductService productService) {
+    public OrderService(Firestore firestore, BrevoEmailService brevoEmailService, ProductService productService, SettingService settingService, CouponService couponService) {
         this.firestore = firestore;
         this.objectMapper = new ObjectMapper();
         this.brevoEmailService = brevoEmailService;
         this.productService = productService;
+        this.settingService = settingService;
+        this.couponService = couponService;
+    }
+
+    public double calculateOrderTotal(OrderDTO orderDTO) throws ExecutionException, InterruptedException, IOException {
+        List<Map<String, Object>> itemsFromDTO = objectMapper.readValue(orderDTO.getItems(), new TypeReference<>() {});
+        BigDecimal merchandiseTotal = BigDecimal.ZERO;
+
+        for (Map<String, Object> item : itemsFromDTO) {
+            String productId = (String) item.get("id");
+            int quantity = ((Number) item.get("quantity")).intValue();
+
+            DocumentSnapshot productDoc = firestore.collection("products").document(productId).get().get();
+            if (!productDoc.exists()) {
+                 throw new IllegalArgumentException("Product with ID " + productId + " not found.");
+            }
+            Product product = productDoc.toObject(Product.class);
+
+            double priceToUse = (product.getDiscountPrice() != null && product.getDiscountPrice() > 0)
+                ? product.getDiscountPrice()
+                : product.getPrice();
+
+            merchandiseTotal = merchandiseTotal.add(BigDecimal.valueOf(priceToUse).multiply(BigDecimal.valueOf(quantity)));
+        }
+
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (orderDTO.getCouponCode() != null && !orderDTO.getCouponCode().isEmpty()) {
+            Optional<Coupon> couponOpt = couponService.verifyCoupon(orderDTO.getCouponCode());
+            if (couponOpt.isPresent()) {
+                Coupon coupon = couponOpt.get();
+                if (coupon.getDiscountType() == DiscountType.PERCENTAGE) {
+                    BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"));
+                    discountAmount = merchandiseTotal.multiply(percentage);
+                } else { // FIXED_AMOUNT
+                    discountAmount = coupon.getDiscountValue();
+                }
+
+                if (discountAmount.compareTo(merchandiseTotal) > 0) {
+                    discountAmount = merchandiseTotal;
+                }
+            }
+        }
+        
+        BigDecimal merchandiseAfterDiscount = merchandiseTotal.subtract(discountAmount);
+
+        Setting settings = settingService.getSettings();
+        BigDecimal shippingCost = BigDecimal.ZERO;
+
+        BigDecimal freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO);
+
+        if (freeShippingThreshold.compareTo(BigDecimal.ZERO) <= 0 || merchandiseAfterDiscount.compareTo(freeShippingThreshold) < 0) {
+            shippingCost = Optional.ofNullable(settings.getStandardShippingCost()).orElse(BigDecimal.ZERO);
+            if ("split".equalsIgnoreCase(orderDTO.getShipmentPreference())) {
+                 BigDecimal splitCost = Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO);
+                 shippingCost = shippingCost.add(splitCost);
+            }
+        }
+
+        BigDecimal finalTotal = merchandiseAfterDiscount.add(shippingCost);
+        
+        return finalTotal.doubleValue();
     }
 
     public void createOrder(OrderDTO orderDTO) throws IOException, ExecutionException, InterruptedException {

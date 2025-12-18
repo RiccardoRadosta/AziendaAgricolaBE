@@ -1,6 +1,6 @@
 # Progetto Spring Boot con JWT, Firebase e Stripe
 
-Questo progetto è un'applicazione Java basata su Spring Boot che fornisce un backend completo per la gestione di prodotti, ordini, newsletter e un pannello di amministrazione. L'applicazione integra l'autenticazione basata su token JWT, la connettività a Firebase, l'elaborazione dei pagamenti con Stripe e il monitoraggio delle statistiche del sito tramite Vercel Analytics.
+Questo progetto è un'applicazione Java basata su Spring Boot che fornisce un backend completo per la gestione di prodotti, ordini, newsletter, impostazioni di sistema e un pannello di amministrazione. L'applicazione integra l'autenticazione basata su token JWT, la connettività a Firebase, l'elaborazione dei pagamenti con Stripe e il monitoraggio delle statistiche del sito tramite Vercel Analytics.
 
 ## Tecnologie Utilizzate
 
@@ -31,13 +31,20 @@ Questo progetto è un'applicazione Java basata su Spring Boot che fornisce un ba
 - **Separazione Spedizioni**: La logica di business separa automaticamente gli articoli in pre-ordine da quelli subito disponibili. Se l'utente sceglie l'opzione `split`, vengono creati ordini "figlio" multipli, permettendo una gestione indipendente dello stato di ogni spedizione.
 - **Integrazione con Stripe**: Utilizza Stripe per elaborare i pagamenti a livello di ordine "padre".
 
-### 4. Iscrizione alla Newsletter
+### 4. Impostazioni di Sistema
+
+- **Configurazione Dinamica**: API per gestire le impostazioni chiave dell'applicazione, come i costi di spedizione.
+- **Endpoint Pubblico e Privato**: Un endpoint pubblico per la lettura delle impostazioni da parte del frontend e un endpoint di amministrazione protetto per la loro modifica.
+- **Robustezza**: L'endpoint pubblico fornisce valori di default per garantire che il frontend riceva sempre dati validi, anche se le impostazioni non sono state configurate.
+
+### 5. Iscrizione alla Newsletter
 
 - **API per l'Iscrizione**: Fornisce endpoint per consentire agli utenti di iscriversi e annullare l'iscrizione.
 
-### 5. Pannello di Amministrazione
+### 6. Pannello di Amministrazione
 
 - **Dashboard**: Un'area riservata per monitorare lo stato dell'applicazione.
+- **Gestione Impostazioni**: Permette di configurare i costi di spedizione (standard, soglia gratuita, spedizione divisa).
 - **Statistiche**: Fornisce dati aggregati e i prodotti più venduti.
 - **Visualizzazione Analytics**: Integra le statistiche di Vercel Analytics.
 
@@ -51,6 +58,7 @@ Il progetto è organizzato nei seguenti package:
 - `newsletter`: Logica per le iscrizioni alla newsletter.
 - `order`: Gestione degli ordini secondo la logica padre-figlio.
 - `product`: Gestione dei prodotti del catalogo (CRUD).
+- `settings`: Servizi e controller per la gestione delle impostazioni di sistema.
 
 ## Chiamate alle API
 
@@ -61,6 +69,12 @@ Il progetto è organizzato nei seguenti package:
 - `POST /api/products`: Crea un nuovo prodotto. (Admin)
 - `PUT /api/products/{id}`: Aggiorna un prodotto esistente. (Admin)
 - `DELETE /api/products/{id}`: Elimina un prodotto. (Admin)
+
+### Impostazioni (`/api/settings` e `/api/admin/settings`)
+
+- `GET /api/settings/public`: Recupera le impostazioni pubbliche del sistema, come i costi di spedizione. Restituisce valori di default se non configurate. (Pubblico)
+- `PUT /api/admin/settings`: Aggiorna le impostazioni di sistema. (Admin)
+    - **Body**: Un oggetto JSON con le impostazioni da aggiornare (es. `{ "standardShippingCost": 35, "splitShippingCost": 10 }`).
 
 ### Ordini e Spedizioni
 
