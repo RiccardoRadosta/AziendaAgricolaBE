@@ -39,6 +39,7 @@ public class OrderController {
   public ResponseEntity<Map<String, String>> chargeOrder(
     @RequestBody OrderDTO orderDTO
   ) {
+    System.out.println("--- CHARGE ORDER ENDPOINT HIT ---");
     try {
       List<Map<String, Object>> items = objectMapper.readValue(
         orderDTO.getItems(),
@@ -122,6 +123,7 @@ public class OrderController {
   public ResponseEntity<Map<String, String>> createOrder(
     @RequestBody OrderDTO orderDTO
   ) {
+    System.out.println("--- CREATE ORDER ENDPOINT HIT ---");
     try {
       orderService.createOrder(orderDTO);
       Map<String, String> response = new HashMap<>();
