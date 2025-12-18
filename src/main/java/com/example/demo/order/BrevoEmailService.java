@@ -52,12 +52,22 @@ public class BrevoEmailService {
         ctx.setVariable("orderId", parentOrder.getId());
         ctx.setVariable("currentYear", Year.now().getValue());
 
-        // Riepilogo finanziario
-        double productSubtotal = parentOrder.getSubtotal() - parentOrder.getShippingCost() + parentOrder.getDiscount();
-        ctx.setVariable("subtotal", String.format("%.2f", productSubtotal));
-        ctx.setVariable("shippingCost", String.format("%.2f", parentOrder.getShippingCost()));
-        ctx.setVariable("discount", String.format("%.2f", parentOrder.getDiscount()));
-        ctx.setVariable("total", String.format("%.2f", parentOrder.getSubtotal()));
+        // --- FIX: Gestione robusta dei valori numerici ---
+        // Recupera i valori, usando 0.0 come fallback sicuro se sono null.
+        double shippingCost = parentOrder.getShippingCost() != null ? parentOrder.getShippingCost() : 0.0;
+        double discount = parentOrder.getDiscount() != null ? parentOrder.getDiscount() : 0.0;
+        double total = parentOrder.getSubtotal() != null ? parentOrder.getSubtotal() : 0.0;
+
+        // Il subtotale dei prodotti viene ricalcolato per coerenza,
+        // partendo dal totale finale (che è già al netto dello sconto).
+        double productSubtotal = total - shippingCost + discount;
+
+        // Passa i valori come tipi numerici, non come stringhe.
+        ctx.setVariable("subtotal", productSubtotal);
+        ctx.setVariable("shippingCost", shippingCost);
+        ctx.setVariable("discount", discount);
+        ctx.setVariable("total", total);
+        // --- FINE FIX ---
 
         // 2. Prepara la lista delle spedizioni in un formato leggibile dal template
         List<Map<String, Object>> shipmentsForTemplate = new ArrayList<>();
@@ -82,7 +92,6 @@ public class BrevoEmailService {
         sendEmail(parentOrder.getEmail(), subject, htmlContent);
     }
 
-    // === FIX: Riportato il metodo a public per renderlo accessibile da altri servizi ===
     public void sendEmail(String toEmail, String subject, String htmlContent) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("api-key", apiKey);
