@@ -94,28 +94,28 @@
         </div>
         <div class="content">
             <div class="order-summary">
-                <h2 th:text="'Grazie per il tuo acquisto, ' + ${customerName} + '!'">Grazie per il tuo acquisto!</h2>
-                <p>Il tuo ordine <strong th:text="'#' + ${orderId}">#ORD-123</strong> è stato confermato e verrà elaborato a breve.</p>
+                <h2 th:text="|Grazie per il tuo acquisto, ${customerName}!|">Grazie per il tuo acquisto!</h2>
+                <p>Il tuo ordine <strong th:text="|#${orderId}|">#ORD-123</strong> è stato confermato e verrà elaborato a breve.</p>
             </div>
 
             <!-- Loop per le spedizioni -->
             <div class="shipment-details" th:each="shipment, iterStat : ${shipments}">
                 <div class="shipment-box">
-                    <h3 th:text="'Spedizione ' + ${iterStat.count} + ' di ' + ${#lists.size(shipments)}">Spedizione 1 di 1</h3>
+                    <h3 th:text="|Spedizione ${iterStat.count} di ${#lists.size(shipments)}|">Spedizione 1 di 1</h3>
                     <p><strong>Stato:</strong> <span th:text="${shipment.status}">In preparazione</span></p>
                     <h4>Articoli:</h4>
                     <ul class="item-list">
-                        <li th:each="item : ${shipment.items}" th:text="${item.name} + ' - Quantità: ' + ${item.quantity}">Prodotto - Quantità: 1</li>
+                        <li th:each="item : ${shipment.items}" th:text="|${item.name} - Quantità: ${item.quantity}|">Prodotto - Quantità: 1</li>
                     </ul>
                 </div>
             </div>
 
             <div class="financial-summary">
                 <h2>Riepilogo</h2>
-                <p><span>Subtotale prodotti</span> <span th:text="${subtotal} + ' €'">0.00 €</span></p>
-                <p><span>Costo spedizione</span> <span th:text="${shippingCost} + ' €'">0.00 €</span></p>
-                <p th:if="${discount > 0}"><span>Sconto</span> <span th:text="'-' + ${discount} + ' €'"> -0.00 €</span></p>
-                <p class="total"><span>Totale pagato</span> <span th:text="${total} + ' €'">0.00 €</span></p>
+                <p><span>Subtotale prodotti</span> <span th:text="|${subtotal} €|">0.00 €</span></p>
+                <p><span>Costo spedizione</span> <span th:text="|${shippingCost} €|">0.00 €</span></p>
+                <p th:if="${discount > 0}"><span>Sconto</span> <span th:text="|- ${discount} €|"> -0.00 €</span></p>
+                <p class="total"><span>Totale pagato</span> <span th:text="|${total} €|">0.00 €</span></p>
             </div>
         </div>
         <div class="footer">
