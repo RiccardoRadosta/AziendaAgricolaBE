@@ -1,6 +1,6 @@
 # Progetto Spring Boot con JWT, Firebase e Stripe
 
-Questo progetto è un'applicazione Java basata su Spring Boot che fornisce un backend completo per la gestione di prodotti, ordini, newsletter, impostazioni di sistema e un pannello di amministrazione. L'applicazione integra l'autenticazione basata su token JWT, la connettività a Firebase, l'elaborazione dei pagamenti con Stripe e il monitoraggio delle statistiche del sito tramite Vercel Analytics.
+Questo progetto è un'applicazione Java basata su Spring Boot che fornisce un backend completo per la gestione di prodotti, ordini, newsletter, impostazioni di sistema e un pannello di amministrazione. L'applicazione integra l'autenticazione basata su token JWT, la connettività a Firebase, l'elaborazione dei pagamenti con Stripe, l'invio di email transazionali con Brevo e il monitoraggio delle statistiche del sito tramite Vercel Analytics.
 
 ## Tecnologie Utilizzate
 
@@ -9,6 +9,8 @@ Questo progetto è un'applicazione Java basata su Spring Boot che fornisce un ba
 - **JWT (JSON Web Token)**: Per la creazione di token di accesso per un'autenticazione sicura.
 - **Firebase Admin SDK**: Per l'integrazione con i servizi di Firebase.
 - **Stripe-Java**: Libreria ufficiale di Stripe per l'elaborazione dei pagamenti in Java.
+- **Brevo API**: Per l'invio di email transazionali.
+- **Thymeleaf**: Per la gestione di template HTML dinamici, in particolare per le email.
 - **Vercel Analytics API**: Per recuperare dati di traffico e visualizzazioni del sito deployato su Vercel.
 - **Maven**: Per la gestione delle dipendenze e il build del progetto.
 - **Java 17**: Versione del linguaggio di programmazione.
@@ -38,6 +40,16 @@ Per garantire la massima sicurezza e prevenire discrepanze, il sistema adotta un
 - **Struttura Padre-Figlio**: Un acquisto genera un ordine **"padre"** (dati anagrafici e finanziari) e uno o più ordini **"figlio"** (le singole spedizioni).
 - **Separazione Spedizioni**: La logica separa automaticamente gli articoli in pre-ordine da quelli disponibili, creando spedizioni multiple se richiesto.
 - **Integrazione con Stripe**: Utilizza Stripe per elaborare i pagamenti a livello di ordine "padre".
+
+#### 4.1. Notifiche Email Transazionali
+
+Al completamento di un ordine, il sistema invia automaticamente un'email di conferma al cliente, utilizzando **Brevo** come provider di posta.
+
+- **Template HTML Dinamici**: Le email sono basate su template HTML dinamici gestiti da **Thymeleaf**, permettendo una netta separazione tra la logica di business (Java) e la presentazione (HTML).
+- **Dettaglio Completo**: L'email contiene un riepilogo completo dell'ordine, includendo:
+  - Dati del cliente e ID dell'ordine.
+  - Una suddivisione chiara per ogni spedizione, con il rispettivo stato (es. "In preparazione", "In Pre-ordine") e gli articoli contenuti.
+  - Un riepilogo finanziario dettagliato con subtotale, costi di spedizione, sconti applicati e totale pagato, il tutto formattato correttamente a due cifre decimali.
 
 ### 5. Impostazioni di Sistema
 
@@ -76,7 +88,7 @@ Il flusso di creazione è in due fasi:
 
 1.  **`POST /api/orders/charge`**: (Autorizzazione) Verifica stock e totale, poi crea un `PaymentIntent` con Stripe.
     - **Risposta**: `clientSecret` per confermare il pagamento sul frontend.
-2.  **`POST /api/orders/create`**: (Salvataggio) Da chiamare **dopo** la conferma del pagamento sul frontend. Salva l'ordine nel database.
+2.  **`POST /api/orders/create`**: (Salvataggio) Da chiamare **dopo** la conferma del pagamento sul frontend. Salva l'ordine nel database e invia l'email di conferma.
     - **Risposta**: Conferma della creazione.
 
 - `GET /api/orders`: Recupera la lista degli ordini "padre". (Admin)
