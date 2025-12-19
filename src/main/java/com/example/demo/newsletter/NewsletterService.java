@@ -63,6 +63,22 @@ public class NewsletterService {
         }
     }
 
+    /**
+     * Conta il numero totale di iscritti alla newsletter.
+     * @return Il numero di iscritti.
+     * @throws ExecutionException Se si verifica un errore durante il recupero dei dati da Firestore.
+     * @throws InterruptedException Se il thread viene interrotto durante l'attesa dei dati.
+     */
+    public int countSubscribers() throws ExecutionException, InterruptedException {
+        ApiFuture<QuerySnapshot> future = firestore.collection("newsletterSubscriptions").get();
+        // Nota: per collezioni molto grandi, questo approccio potrebbe essere inefficiente.
+        // Firestore non ha un'operazione "count" diretta e a basso costo.
+        // Per ora, dato il contesto, questo metodo è sufficiente ed efficace.
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        logger.info("Found {} total subscribers.", documents.size());
+        return documents.size();
+    }
+
     public void sendNewsletter(String subject, String message) throws ExecutionException, InterruptedException {
         logger.info("Starting newsletter send job...");
         ApiFuture<QuerySnapshot> future = firestore.collection("newsletterSubscriptions").get();

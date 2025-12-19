@@ -3,6 +3,7 @@ package com.example.demo.admin;
 import com.example.demo.admin.dto.DashboardStatsDTO;
 import com.example.demo.admin.dto.NewsletterRequestDTO;
 import com.example.demo.newsletter.NewsletterService;
+import com.example.demo.newsletter.NewsletterSubscriptionDTO;
 import com.example.demo.order.Order;
 import com.example.demo.order.OrderService;
 import com.example.demo.security.JwtUtil;
@@ -132,6 +133,30 @@ public class AdminController {
             return ResponseEntity.ok(Collections.singletonMap("token", token));
         } else {
             return ResponseEntity.status(401).body(Collections.singletonMap("error", "Credenziali non valide"));
+        }
+    }
+
+    @PostMapping("/newsletter/subscribe")
+    public ResponseEntity<?> adminSubscribe(@RequestBody NewsletterSubscriptionDTO subscription) {
+        // Valida l'input
+        if (subscription == null || subscription.getEmail() == null || subscription.getEmail().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Email is required."));
+        }
+
+        newsletterService.subscribe(subscription);
+        // Il service gestisce già la logica dei duplicati, quindi possiamo semplicemente restituire OK.
+        return ResponseEntity.ok(Map.of("success", true, "message", "Subscriber added or already exists."));
+    }
+
+    @GetMapping("/newsletter/subscribers/count")
+    public ResponseEntity<?> getSubscribersCount() {
+        try {
+            int count = newsletterService.countSubscribers();
+            return ResponseEntity.ok(Map.of("count", count));
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error retrieving subscriber count: " + e.getMessage()));
         }
     }
 
