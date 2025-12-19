@@ -56,10 +56,11 @@ Al completamento di un ordine, il sistema invia automaticamente un'email di conf
 - **Configurazione Dinamica**: API per gestire le impostazioni chiave (es. costi di spedizione).
 - **Endpoint Pubblico e Privato**: Un endpoint pubblico per la lettura e uno protetto per la modifica.
 
-### 6. Iscrizione alla Newsletter
+### 6. Gestione della Newsletter
 
-- **API per l'Iscrizione**: Fornisce endpoint per iscriversi e annullare l'iscrizione.
-- **Controllo Anti-Duplicati**: Il sistema impedisce iscrizioni multiple. Se un utente si iscrive con un'email già presente, l'API risponde con un errore `409 Conflict`.
+- **Iscrizione Pubblica**: Fornisce un endpoint pubblico che permette agli utenti di iscriversi alla newsletter. Il sistema è progettato per gestire in modo silenzioso le iscrizioni duplicate: se un utente prova a iscriversi con un'email già presente, la richiesta viene accettata senza creare un nuovo record, garantendo un'esperienza utente fluida.
+- **Gestione Amministrativa**: L'amministratore ha a disposizione endpoint protetti per aggiungere o rimuovere iscritti manualmente. Questo permette una gestione completa della lista di contatti.
+- **Invio Massivo**: Funzionalità per inviare comunicazioni a tutti gli iscritti tramite Brevo.
 
 ### 7. Pannello di Amministrazione
 
@@ -77,7 +78,7 @@ Il progetto è organizzato nei seguenti package principali: `config`, `security`
 - `POST /api/products`: Crea un nuovo prodotto. (Admin)
 - ... (altri endpoint CRUD)
 
-### Impostazioni (`/api/settings` e `/api/admin/settings`)
+### Impostazioni
 
 - `GET /api/settings/public`: Recupera le impostazioni pubbliche. (Pubblico)
 - `PUT /api/admin/settings`: Aggiorna le impostazioni. (Admin)
@@ -96,14 +97,29 @@ Il flusso di creazione è in due fasi:
 - `PUT /api/shipments/{id}/status`: Aggiorna lo stato di una singola spedizione (ordine "figlio"). (Admin)
 - ... (altri endpoint di gestione)
 
-### Newsletter (`/api/newsletter`)
+### Newsletter
+
+#### Endpoint Pubblici (`/api/newsletter`)
 
 - `POST /api/newsletter/subscribe`: Iscrive un nuovo utente alla newsletter.
   - **Body**: `{ "email": "utente@esempio.com" }`
-  - **Risposta di successo**: Conferma dell'iscrizione.
-  - **Risposta di errore**: `409 Conflict` se l'email è già iscritta.
-- `DELETE /api/newsletter/unsubscribe`: Annulla l'iscrizione.
+  - **Risposta**: `200 OK` sia per le nuove iscrizioni sia se l'email è già presente.
+
+#### Endpoint di Amministrazione (`/api/admin/newsletter`)
+
+- `POST /api/admin/newsletter/subscribe`: Aggiunge un nuovo iscritto (richiede autenticazione admin).
+  - **Body**: `{ "email": "nuovoutente@esempio.com" }`
+  - **Risposta**: `200 OK`, gestisce i duplicati senza errori.
+
+- `POST /api/admin/newsletter/unsubscribe`: Rimuove un iscritto dalla newsletter (richiede autenticazione admin).
   - **Body**: `{ "email": "utente@esempio.com" }`
+  - **Risposta**: `200 OK` se l'utente viene rimosso o se non era presente.
+
+- `POST /api/admin/newsletter/send`: Invia la newsletter a tutti gli iscritti.
+  - **Body**: `{ "subject": "Oggetto della mail", "message": "Contenuto HTML della mail" }`
+
+- `GET /api/admin/newsletter/subscribers/count`: Ottiene il numero totale di iscritti.
+
 
 ## Configurazione
 
