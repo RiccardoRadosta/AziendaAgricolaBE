@@ -148,6 +148,23 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("success", true, "message", "Subscriber added or already exists."));
     }
 
+    @PostMapping("/newsletter/unsubscribe")
+    public ResponseEntity<?> adminUnsubscribe(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Email is required."));
+        }
+
+        try {
+            newsletterService.unsubscribeByEmail(email);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Subscriber successfully unsubscribed."));
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Error unsubscribing subscriber: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/newsletter/subscribers/count")
     public ResponseEntity<?> getSubscribersCount() {
         try {

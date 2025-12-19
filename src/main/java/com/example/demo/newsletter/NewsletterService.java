@@ -5,6 +5,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.WriteBatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -61,6 +62,29 @@ public class NewsletterService {
             // in caso di fallimenti transitori. La richiesta di fatto non andrà a buon fine ma dal client
             // sembrerà di si. In un'implementazione più complessa si potrebbe gestire un re-try o un errore specifico.
         }
+    }
+
+    public void unsubscribeByEmail(String email) throws ExecutionException, InterruptedException {
+        logger.info("Attempting to unsubscribe email: {}", email);
+        ApiFuture<QuerySnapshot> future = firestore.collection("newsletterSubscriptions")
+                .whereEqualTo("email", email)
+                .get();
+
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+
+        if (documents.isEmpty()) {
+            logger.warn("Email {} not found for unsubscription. No action taken.", email);
+            return;
+        }
+
+        WriteBatch batch = firestore.batch();
+        for (QueryDocumentSnapshot document : documents) {
+            batch.delete(document.getReference());
+            logger.info("Scheduled for deletion: subscriber with email {} (Document ID: {})", email, document.getId());
+        }
+
+        batch.commit().get();
+        logger.info("Successfully unsubscribed email: {}", email);
     }
 
     /**
