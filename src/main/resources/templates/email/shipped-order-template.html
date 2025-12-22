@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Ordine Spedito</title>
+    <title>La tua spedizione è in viaggio!</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <style type="text/css">
         body {
@@ -115,15 +115,15 @@
 <body>
 <div class="container">
     <div class="header">
-        <h1>Il tuo ordine è stato spedito!</h1>
+        <h1>La tua spedizione è in viaggio!</h1>
     </div>
     <div class="content">
         <h2 th:text="|Ciao ${customerName},|">Ciao,</h2>
         <p>
-            Una buona notizia! Una parte del tuo ordine <strong th:text="|#${orderId}|">#ORD-123</strong> è stata affidata al corriere e sta per raggiungerti.
+            Una buona notizia! La tua spedizione <strong th:text="|#${shipmentId}|">#SPED-456</strong> è stata affidata al corriere e sta per raggiungerti.
         </p>
         <div class="tracking-info">
-            <p>Puoi seguire la tua spedizione qui:</p>
+            <p>Puoi seguire la tua spedizione con questo codice:</p>
             <strong th:text="${shipment.trackingNumber}">CODICE_TRACCIAMENTO_123</strong>
         </div>
         <div class="section-divider"></div>

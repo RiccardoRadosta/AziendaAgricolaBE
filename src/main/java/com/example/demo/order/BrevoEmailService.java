@@ -54,7 +54,7 @@ public class BrevoEmailService {
     final Context ctx = new Context();
 
     ctx.setVariable("customerName", parentOrder.getFullName());
-    ctx.setVariable("orderId", parentOrder.getId());
+    ctx.setVariable("shipmentId", shipment.getId()); // ID della spedizione figlio
     ctx.setVariable("currentYear", Year.now().getValue());
 
     Map<String, Object> shipmentForTemplate = new HashMap<>();
@@ -75,7 +75,8 @@ public class BrevoEmailService {
         ctx
       );
 
-    String subject = "Il tuo ordine è stato spedito! #" + parentOrder.getId();
+    // Oggetto email modificato per usare solo l'ID spedizione
+    String subject = "La tua spedizione #" + shipment.getId() + " è in viaggio!";
     sendEmail(parentOrder.getEmail(), subject, htmlContent);
   }
 
