@@ -37,6 +37,7 @@ public class Order {
     // -- Dati della Spedizione (solo per CHILD) --
     private String items; // JSON degli articoli in questa spedizione
     private Double originalSubtotal; // Valore dei soli articoli in questa spedizione
+    private String trackingNumber; // NUOVO CAMPO
 
     // -- Dati Comuni --
     private String status;

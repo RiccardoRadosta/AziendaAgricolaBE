@@ -1,6 +1,7 @@
 package com.example.demo.order;
 
 import com.example.demo.order.dto.OrderCustomerUpdateDTO;
+import com.example.demo.order.dto.ShipmentStatusUpdateDTO;
 import com.example.demo.product.InsufficientStockException;
 import com.example.demo.product.ProductService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -185,14 +186,10 @@ public class OrderController {
   @PutMapping("/shipments/{id}/status")
   public ResponseEntity<Order> updateShipmentStatus(
     @PathVariable String id,
-    @RequestBody Map<String, Integer> body
+    @RequestBody ShipmentStatusUpdateDTO dto
   ) {
     try {
-      Integer newStatus = body.get("status");
-      if (newStatus == null) {
-        return ResponseEntity.badRequest().build();
-      }
-      Order updatedShipment = orderService.updateShipmentStatus(id, newStatus);
+      Order updatedShipment = orderService.updateShipmentStatus(id, dto);
       return ResponseEntity.ok(updatedShipment);
     } catch (IllegalArgumentException e) {
       return ResponseEntity.badRequest().build();

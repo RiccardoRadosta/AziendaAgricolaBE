@@ -4,6 +4,7 @@ import com.example.demo.coupon.Coupon;
 import com.example.demo.coupon.CouponService;
 import com.example.demo.coupon.DiscountType;
 import com.example.demo.order.dto.OrderCustomerUpdateDTO;
+import com.example.demo.order.dto.ShipmentStatusUpdateDTO;
 import com.example.demo.product.Product;
 import com.example.demo.product.ProductService;
 import com.example.demo.settings.Setting;
@@ -276,11 +277,7 @@ public class OrderService {
         return orderRef.get().get().toObject(Order.class);
     }
 
-    public Order updateShipmentStatus(String shipmentId, int newStatus) throws ExecutionException, InterruptedException {
-        if (newStatus < 0 || newStatus > 3) {
-            throw new IllegalArgumentException("Invalid shipment status.");
-        }
-
+    public Order updateShipmentStatus(String shipmentId, ShipmentStatusUpdateDTO dto) throws ExecutionException, InterruptedException {
         DocumentReference shipmentRef = firestore.collection("orders").document(shipmentId);
         DocumentSnapshot shipmentDoc = shipmentRef.get().get();
 
@@ -288,7 +285,24 @@ public class OrderService {
             throw new RuntimeException("Shipment (child order) not found with ID: " + shipmentId);
         }
 
-        shipmentRef.update("status", String.valueOf(newStatus)).get();
+        Map<String, Object> updates = new HashMap<>();
+        if (dto.getStatus() != null) {
+            if (dto.getStatus() < 0 || dto.getStatus() > 3) {
+                throw new IllegalArgumentException("Invalid shipment status.");
+            }
+            updates.put("status", String.valueOf(dto.getStatus()));
+        }
+
+        if (dto.getTrackingNumber() != null && !dto.getTrackingNumber().trim().isEmpty()) {
+            updates.put("trackingNumber", dto.getTrackingNumber().trim());
+        }
+
+        if (!updates.isEmpty()) {
+            shipmentRef.update(updates).get();
+        }
+
+        // TODO: Aggiungere logica invio email qui
+
         return shipmentRef.get().get().toObject(Order.class);
     }
 
