@@ -35,34 +35,38 @@ Per garantire la massima sicurezza e prevenire discrepanze, il sistema adotta un
 - **CRUD Completo**: API per creare, leggere, aggiornare ed eliminare i prodotti del catalogo.
 - **Sicurezza a livello di endpoint**: Le operazioni di modifica sono protette, mentre la lettura dei prodotti è pubblica.
 
-### 4. Gestione degli Ordini con Logica Padre-Figlio
+### 4. Comunicazioni via Email (Brevo)
+
+#### Conferma d'Ordine
+Al completamento di un acquisto, il sistema invia un'email di conferma al cliente.
+- **Template HTML Dinamici**: Le email sono basate su template HTML dinamici gestiti da **Thymeleaf**.
+- **Dettaglio Completo**: L'email contiene un riepilogo dell'ordine, suddiviso per spedizioni (figli) con il relativo stato e gli articoli.
+
+#### Notifica di Spedizione con Tracking
+Quando un amministratore aggiorna lo stato di una spedizione a "Spedito" e inserisce il numero di tracciamento:
+- **Invio Automatico**: Il sistema invia automaticamente un'email al cliente per notificargli che la spedizione è partita.
+- **Chiarezza per il Cliente**: L'email si concentra esclusivamente sulla spedizione specifica (ordine "figlio"), mostrando l'**ID della spedizione** e il **numero di tracciamento**.
+- **Contenuto Essenziale**: Include la lista degli articoli presenti in quella specifica spedizione, evitando confusione nel caso di ordini suddivisi.
+
+### 5. Gestione degli Ordini con Logica Padre-Figlio
 
 - **Struttura Padre-Figlio**: Un acquisto genera un ordine **"padre"** (dati anagrafici e finanziari) e uno o più ordini **"figlio"** (le singole spedizioni).
 - **Separazione Spedizioni**: La logica separa automaticamente gli articoli in pre-ordine da quelli disponibili, creando spedizioni multiple se richiesto.
 - **Integrazione con Stripe**: Utilizza Stripe per elaborare i pagamenti a livello di ordine "padre".
 
-#### 4.1. Notifiche Email Transazionali
 
-Al completamento di un ordine, il sistema invia automaticamente un'email di conferma al cliente, utilizzando **Brevo** come provider di posta.
-
-- **Template HTML Dinamici**: Le email sono basate su template HTML dinamici gestiti da **Thymeleaf**, permettendo una netta separazione tra la logica di business (Java) e la presentazione (HTML).
-- **Dettaglio Completo**: L'email contiene un riepilogo completo dell'ordine, includendo:
-  - Dati del cliente e ID dell'ordine.
-  - Una suddivisione chiara per ogni spedizione, con il rispettivo stato (es. "In preparazione", "In Pre-ordine") e gli articoli contenuti.
-  - Un riepilogo finanziario dettagliato con subtotale, costi di spedizione, sconti applicati e totale pagato, il tutto formattato correttamente a due cifre decimali.
-
-### 5. Impostazioni di Sistema
+### 6. Impostazioni di Sistema
 
 - **Configurazione Dinamica**: API per gestire le impostazioni chiave (es. costi di spedizione).
 - **Endpoint Pubblico e Privato**: Un endpoint pubblico per la lettura e uno protetto per la modifica.
 
-### 6. Gestione della Newsletter
+### 7. Gestione della Newsletter
 
 - **Iscrizione Pubblica**: Fornisce un endpoint pubblico che permette agli utenti di iscriversi alla newsletter. Il sistema è progettato per gestire in modo silenzioso le iscrizioni duplicate: se un utente prova a iscriversi con un'email già presente, la richiesta viene accettata senza creare un nuovo record, garantendo un'esperienza utente fluida.
 - **Gestione Amministrativa**: L'amministratore ha a disposizione endpoint protetti per aggiungere o rimuovere iscritti manualmente. Questo permette una gestione completa della lista di contatti.
 - **Invio Massivo**: Funzionalità per inviare comunicazioni a tutti gli iscritti tramite Brevo.
 
-### 7. Pannello di Amministrazione
+### 8. Pannello di Amministrazione
 
 - **Dashboard**: Area riservata per monitorare lo stato dell'applicazione, gestire impostazioni e visualizzare statistiche di vendita e di Vercel Analytics.
 
