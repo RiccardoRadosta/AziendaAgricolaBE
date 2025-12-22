@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Ordine Spedito</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            color: #333333;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 32px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #dddddd;
+        }
+        .header {
+            background-color: #0046BF;
+            color: #ffffff;
+            padding: 24px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: normal;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+        .content {
+            padding: 32px 28px;
+        }
+        .content h2 {
+            font-size: 19px;
+            color: #333333;
+            margin-bottom: 10px;
+        }
+        .content p {
+            font-size: 14.5px;
+            margin: 6px 0;
+        }
+        .tracking-info {
+            background-color: #f0f5ff;
+            border: 1px solid #b3c8ff;
+            border-radius: 6px;
+            padding: 18px 20px;
+            margin-top: 25px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .tracking-info p {
+            font-size: 15px;
+            margin: 0;
+        }
+        .tracking-info strong {
+            font-size: 18px;
+            color: #0046BF;
+            display: block;
+            margin-top: 8px;
+            letter-spacing: 1px;
+        }
+        .section-divider {
+            height: 1px;
+            background-color: #eeeeee;
+            margin: 30px 0;
+        }
+        .shipment-box {
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+            background-color: #fafafa;
+        }
+        .shipment-box h3 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: #0046BF;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .item-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .item-list li {
+            padding: 7px 0;
+            font-size: 14px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        .item-list li:last-child {
+            border-bottom: none;
+        }
+        .footer {
+            background-color: #f4f4f4;
+            color: #777777;
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+        }
+        .footer p {
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Il tuo ordine è stato spedito!</h1>
+    </div>
+    <div class="content">
+        <h2 th:text="|Ciao ${customerName},|">Ciao,</h2>
+        <p>
+            Una buona notizia! Una parte del tuo ordine <strong th:text="|#${orderId}|">#ORD-123</strong> è stata affidata al corriere e sta per raggiungerti.
+        </p>
+        <div class="tracking-info">
+            <p>Puoi seguire la tua spedizione qui:</p>
+            <strong th:text="${shipment.trackingNumber}">CODICE_TRACCIAMENTO_123</strong>
+        </div>
+        <div class="section-divider"></div>
+        <div class="shipment-box">
+            <h3>Articoli in questa spedizione</h3>
+            <ul class="item-list">
+                <li th:each="item : ${shipment.items}"
+                    th:text="|${item.name} - Quantità: ${item.quantity}|">
+                    Prodotto - Quantità: 1
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer">
+        <p>Azienda Agricola &copy; <span th:text="${currentYear}">2024</span>. Tutti i diritti riservati.</p>
+        <p>Questa è un’email automatica, si prega di non rispondere.</p>
+    </div>
+</div>
+</body>
+</html>

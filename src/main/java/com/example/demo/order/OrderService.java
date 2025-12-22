@@ -301,9 +301,18 @@ public class OrderService {
             shipmentRef.update(updates).get();
         }
 
-        // TODO: Aggiungere logica invio email qui
+        Order updatedShipment = shipmentRef.get().get().toObject(Order.class);
 
-        return shipmentRef.get().get().toObject(Order.class);
+        // Controlla se l'ordine è stato appena segnato come "Spedito" e ha un tracking number
+        boolean isShippedNow = dto.getStatus() != null && dto.getStatus() == 1;
+        boolean hasTracking = updatedShipment.getTrackingNumber() != null && !updatedShipment.getTrackingNumber().isEmpty();
+
+        if (isShippedNow && hasTracking) {
+            Order parentOrder = getParentOrderWithChildren(updatedShipment.getParentOrderId());
+            brevoEmailService.sendShippedOrderEmail(parentOrder, updatedShipment);
+        }
+
+        return updatedShipment;
     }
 
     public void deleteOrder(String parentId) throws ExecutionException, InterruptedException {
