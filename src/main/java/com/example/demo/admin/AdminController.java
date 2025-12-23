@@ -34,7 +34,7 @@ public class AdminController {
     private final CloudinaryService cloudinaryService;
     private final NewsletterService newsletterService;
     private final VercelAnalyticsService vercelAnalyticsService;
-    private final SettingService settingService; // Service iniettato
+    private final SettingService settingService;
 
     @Value("${admin.username}")
     private String adminUsername;
@@ -49,10 +49,35 @@ public class AdminController {
         this.cloudinaryService = cloudinaryService;
         this.newsletterService = newsletterService;
         this.vercelAnalyticsService = vercelAnalyticsService;
-        this.settingService = settingService; // Aggiunto al costruttore
+        this.settingService = settingService;
     }
 
-    @PutMapping("/settings")
+    // ... (altri metodi omessi per brevità)
+
+    @GetMapping("/shipments-list")
+    public ResponseEntity<List<ShipmentListDTO>> getShipmentsList() {
+        try {
+            List<ShipmentListDTO> shipments = orderService.getShipmentsForAdminList();
+            
+            // LOG DI DEBUG: Stampa il contenuto della lista prima di inviarla
+            System.out.println("\n--- DEBUG SPEDIZIONI ---");
+            System.out.println("Dati recuperati dal service: " + shipments);
+            System.out.println("Numero di spedizioni: " + shipments.size());
+            System.out.println("------------------------\n");
+
+            return ResponseEntity.ok(shipments);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            // Logga l'eccezione per il debug
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // ... (il resto della classe rimane invariato)
+     @PutMapping("/settings")
     public ResponseEntity<?> updateSettings(@RequestBody Map<String, Object> updates) {
         try {
             Setting currentSettings = settingService.getSettings();
@@ -200,20 +225,6 @@ public class AdminController {
         }
     }
 
-    @GetMapping("/shipments-list")
-    public ResponseEntity<List<ShipmentListDTO>> getShipmentsList() {
-        try {
-            List<ShipmentListDTO> shipments = orderService.getShipmentsForAdminList();
-            return ResponseEntity.ok(shipments);
-        } catch (ExecutionException | InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            // Logga l'eccezione per il debug
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
 
     @GetMapping("/orders")
     public ResponseEntity<List<Order>> getAllOrders(@RequestParam(required = false) Integer status) {
