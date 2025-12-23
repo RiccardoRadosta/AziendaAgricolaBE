@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -31,6 +32,8 @@ public class OrderService {
     private final ProductService productService;
     private final SettingService settingService;
     private final CouponService couponService;
+
+    private static final String STATUS_CONSEGNATO = "2";
 
     public OrderService(Firestore firestore, BrevoEmailService brevoEmailService, ProductService productService, SettingService settingService, CouponService couponService) {
         this.firestore = firestore;
@@ -218,12 +221,10 @@ public class OrderService {
         if (status != null) {
             // Filter logic might be inaccurate as parent status is generic.
             // For precise filtering, one should query the children's status.
-            // query = query.whereEqualTo("status", String.valueOf(status));
         }
 
         List<Order> orders = query.get().get().toObjects(Order.class);
 
-        // Sort in memory by creation date, newest to oldest
         return orders.stream()
                 .sorted(Comparator.comparing(Order::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
@@ -294,7 +295,6 @@ public class OrderService {
 
         Order updatedShipment = shipmentRef.get().get().toObject(Order.class);
 
-        // Controlla se l'ordine è stato appena segnato come "Spedito" e ha un tracking number
         boolean isShippedNow = dto.getStatus() != null && dto.getStatus() == 1;
         boolean hasTracking = updatedShipment.getTrackingNumber() != null && !updatedShipment.getTrackingNumber().isEmpty();
 
@@ -327,120 +327,153 @@ public class OrderService {
     }
 
     public List<ShipmentListDTO> getShipmentsForAdminList() throws ExecutionException, InterruptedException {
-        // 1. Fetch all CHILD orders (shipments)
+        // Query 1: Fetch all active child orders (shipments), not delivered
         List<Order> childOrders = firestore.collection("orders")
                 .whereEqualTo("type", "CHILD")
+                .whereNotEqualTo("status", STATUS_CONSEGNATO)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get().get().toObjects(Order.class);
 
         if (childOrders.isEmpty()) {
-            return new ArrayList<>();
+            return Collections.emptyList();
         }
 
-        // 2. Collect all unique parent and product IDs for efficient fetching
+        // Collect all unique parent and product IDs for efficient fetching
         List<String> parentOrderIds = childOrders.stream()
                 .map(Order::getParentOrderId)
+                .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
 
         List<String> productIds = childOrders.stream()
                 .flatMap(child -> {
                     try {
-                        List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
+                        List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<List<Map<String, Object>>>() {});
                         return items.stream().map(item -> (String) item.get("id"));
                     } catch (IOException e) {
-                        throw new RuntimeException("Failed to parse items from child order: " + child.getId(), e);
+                        System.err.println("Failed to parse items from child order: " + child.getId());
+                        return Stream.<String>empty(); // THIS IS THE FIX
                     }
                 })
+                .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
 
-        // 3. Fetch all parent orders and products in bulk using 'IN' queries
+        // Fetch all parent orders and products in bulk using 'IN' queries
         Map<String, Order> parentOrdersMap = fetchInPartitions(parentOrderIds, "orders", Order.class);
-        Map<String, Product> productsMap = fetchInPartitions(productIds, "products", Product.class);
+        Map<String, Product> productsMap = fetchProductsInPartitions(productIds);
 
-        // 4. Build the final DTO list
-        List<ShipmentListDTO> shipmentList = new ArrayList<>();
-        for (Order child : childOrders) {
-            Order parent = parentOrdersMap.get(child.getParentOrderId());
-            if (parent == null) continue; // Skip if parent is missing
-
-            ShipmentListDTO dto = new ShipmentListDTO();
-            dto.setId(child.getId());
-            dto.setParentOrderId(parent.getId());
-            dto.setShipmentDate(child.getCreatedAt());
-            dto.setStatus(Integer.parseInt(child.getStatus()));
-            dto.setTrackingNumber(child.getTrackingNumber());
-
-            // --- ALIASES from PARENT ---
-            dto.setRecipientName(parent.getFullName());
-            dto.setRecipientAddress(parent.getAddress());
-            dto.setRecipientCity(parent.getCity());
-            dto.setRecipientProvince(parent.getProvince());
-            dto.setRecipientPostalCode(parent.getPostalCode());
-            dto.setOrderNotes(parent.getOrderNotes());
-            // --- END ALIASES ---
-
-            int totalPackages = parent.getChildOrderIds() != null ? parent.getChildOrderIds().size() : 1;
-            int packageIndex = parent.getChildOrderIds() != null ? parent.getChildOrderIds().indexOf(child.getId()) + 1 : 1;
-            dto.setTotalPackages(totalPackages);
-            dto.setPackageIndex(packageIndex > 0 ? packageIndex : 1);
-
-            try {
-                List<Map<String, Object>> itemsFromChild = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
-                List<ShipmentListDTO.ShipmentItem> shipmentItems = new ArrayList<>();
-
-                for (Map<String, Object> itemMap : itemsFromChild) {
-                    String productId = (String) itemMap.get("id");
-                    Product product = productsMap.get(productId);
-                    if (product == null) continue; // Product might have been deleted
-
-                    ShipmentListDTO.ShipmentItem shipmentItem = new ShipmentListDTO.ShipmentItem();
-                    shipmentItem.setId(product.getId());
-                    shipmentItem.setName(product.getName());
-                    shipmentItem.setQuantity(((Number) itemMap.get("quantity")).intValue());
-                    shipmentItem.setPrice(product.getPrice());
-                    shipmentItem.setDiscountPrice(product.getDiscountPrice());
-                    shipmentItem.setPreSaleDate(product.getPreSaleDate());
-                    shipmentItems.add(shipmentItem);
+        // Build the final DTO list
+        return childOrders.stream()
+            .map(child -> {
+                Order parent = parentOrdersMap.get(child.getParentOrderId());
+                if (parent == null) {
+                    System.err.println("Parent order not found for child: " + child.getId());
+                    return null; 
                 }
-                dto.setItems(shipmentItems);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to parse items for DTO creation for child: " + child.getId(), e);
-            }
+                return createShipmentDTO(child, parent, productsMap);
+            })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+    }
 
-            shipmentList.add(dto);
+    private ShipmentListDTO createShipmentDTO(Order child, Order parent, Map<String, Product> productsMap) {
+        ShipmentListDTO dto = new ShipmentListDTO();
+        dto.setId(child.getId());
+        dto.setParentOrderId(parent.getId());
+        dto.setShipmentDate(child.getCreatedAt());
+        dto.setStatus(Integer.parseInt(child.getStatus()));
+        dto.setTrackingNumber(child.getTrackingNumber());
+
+        dto.setRecipientName(parent.getFullName());
+        dto.setRecipientAddress(parent.getAddress());
+        dto.setRecipientCity(parent.getCity());
+        dto.setRecipientProvince(parent.getProvince());
+        dto.setRecipientPostalCode(parent.getPostalCode());
+        dto.setOrderNotes(parent.getOrderNotes());
+
+        int totalPackages = parent.getChildOrderIds() != null ? parent.getChildOrderIds().size() : 1;
+        int packageIndex = parent.getChildOrderIds() != null ? parent.getChildOrderIds().indexOf(child.getId()) + 1 : 1;
+        dto.setTotalPackages(totalPackages);
+        dto.setPackageIndex(packageIndex > 0 ? packageIndex : 1);
+
+        try {
+            List<Map<String, Object>> itemsFromChild = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
+            List<ShipmentListDTO.ShipmentItem> shipmentItems = itemsFromChild.stream()
+                    .map(itemMap -> createShipmentItem(itemMap, productsMap))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            dto.setItems(shipmentItems);
+        } catch (IOException e) {
+            System.err.println("Failed to parse items for DTO creation for child: " + child.getId());
+            dto.setItems(Collections.emptyList());
         }
 
-        return shipmentList;
+        return dto;
+    }
+
+    private ShipmentListDTO.ShipmentItem createShipmentItem(Map<String, Object> itemMap, Map<String, Product> productsMap) {
+        String productId = (String) itemMap.get("id");
+        Product product = productsMap.get(productId);
+
+        if (product == null) {
+            System.err.println("Product with ID " + productId + " not found in pre-fetched map.");
+            return null; 
+        }
+
+        ShipmentListDTO.ShipmentItem shipmentItem = new ShipmentListDTO.ShipmentItem();
+        shipmentItem.setId(product.getId());
+        shipmentItem.setName(product.getName());
+        shipmentItem.setQuantity(((Number) itemMap.get("quantity")).intValue());
+        shipmentItem.setPrice(product.getPrice());
+        shipmentItem.setDiscountPrice(product.getDiscountPrice());
+        shipmentItem.setPreSaleDate(product.getPreSaleDate());
+        return shipmentItem;
     }
 
     private <T> Map<String, T> fetchInPartitions(List<String> ids, String collection, Class<T> clazz) throws ExecutionException, InterruptedException {
         if (ids == null || ids.isEmpty()) {
-            return new HashMap<>();
+            return Collections.emptyMap();
         }
         
         Map<String, T> results = new HashMap<>();
-        List<List<String>> partitions = partitionList(ids, 30); // Use 30 to be safe with IN query limits
+        List<List<String>> partitions = partitionList(ids, 30);
         
         for (List<String> partition : partitions) {
+            if (partition.isEmpty()) continue;
             firestore.collection(collection).whereIn(FieldPath.documentId(), partition).get().get()
+                .forEach(doc -> results.put(doc.getId(), doc.toObject(clazz)));
+        }
+        return results;
+    }
+
+    private Map<String, Product> fetchProductsInPartitions(List<String> ids) throws ExecutionException, InterruptedException {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        
+        Map<String, Product> results = new HashMap<>();
+        List<List<String>> partitions = partitionList(ids, 30);
+        
+        for (List<String> partition : partitions) {
+            if (partition.isEmpty()) continue;
+            firestore.collection("products").whereIn(FieldPath.documentId(), partition).get().get()
                 .forEach(doc -> {
-                    T object = doc.toObject(clazz);
-                    // For products, we manually set the ID
-                    if (clazz.equals(Product.class)) {
-                        ((Product) object).setId(doc.getId());
-                    }
-                    results.put(doc.getId(), object);
+                    Product p = doc.toObject(Product.class);
+                    p.setId(doc.getId());
+                    results.put(doc.getId(), p);
                 });
         }
         return results;
     }
 
     private <T> List<List<T>> partitionList(List<T> list, int size) {
+        if (list == null || list.isEmpty()) {
+            return Collections.emptyList();
+        }
         List<List<T>> partitions = new ArrayList<>();
         for (int i = 0; i < list.size(); i += size) {
-            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+            partitions.add(new ArrayList<>(list.subList(i, Math.min(i + size, list.size()))));
         }
         return partitions;
     }
