@@ -10,6 +10,7 @@ import com.example.demo.order.OrderService;
 import com.example.demo.security.JwtUtil;
 import com.example.demo.settings.Setting;
 import com.example.demo.settings.SettingService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ public class AdminController {
     private final NewsletterService newsletterService;
     private final VercelAnalyticsService vercelAnalyticsService;
     private final SettingService settingService;
+    private final ObjectMapper objectMapper; // Per serializzare l'errore
 
     @Value("${admin.username}")
     private String adminUsername;
@@ -42,7 +44,7 @@ public class AdminController {
     @Value("${admin.password}")
     private String adminPassword;
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService, SettingService settingService) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService, SettingService settingService, ObjectMapper objectMapper) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
         this.dashboardService = dashboardService;
@@ -50,33 +52,33 @@ public class AdminController {
         this.newsletterService = newsletterService;
         this.vercelAnalyticsService = vercelAnalyticsService;
         this.settingService = settingService;
+        this.objectMapper = objectMapper; // Inietta ObjectMapper
     }
 
-    // ... (altri metodi omessi per brevità)
-
     @GetMapping("/shipments-list")
-    public ResponseEntity<List<ShipmentListDTO>> getShipmentsList() {
+    public ResponseEntity<?> getShipmentsList() {
         try {
             List<ShipmentListDTO> shipments = orderService.getShipmentsForAdminList();
             
-            // LOG DI DEBUG: Stampa il contenuto della lista prima di inviarla
-            System.out.println("\n--- DEBUG SPEDIZIONI ---");
-            System.out.println("Dati recuperati dal service: " + shipments);
-            System.out.println("Numero di spedizioni: " + shipments.size());
+            String jsonOutput = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(shipments);
+            System.out.println("\n--- DEBUG SPEDIZIONI (JSON) ---");
+            System.out.println(jsonOutput);
             System.out.println("------------------------\n");
 
             return ResponseEntity.ok(shipments);
-        } catch (ExecutionException | InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            // Logga l'eccezione per il debug
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+        } catch (Throwable t) {
+            // CATTURA QUALSIASI ERRORE (INCLUSI ERRORI GRAVI)
+            System.err.println("\n--- ERRORE FATALE IN getShipmentsList ---");
+            t.printStackTrace();
+            System.err.println("-------------------------------------\n");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                 .body(Map.of("error", "Errore interno del server durante il recupero delle spedizioni.", "message", t.getMessage()));
         }
     }
 
-    // ... (il resto della classe rimane invariato)
+    // ... altri metodi del controller ...
+
      @PutMapping("/settings")
     public ResponseEntity<?> updateSettings(@RequestBody Map<String, Object> updates) {
         try {
