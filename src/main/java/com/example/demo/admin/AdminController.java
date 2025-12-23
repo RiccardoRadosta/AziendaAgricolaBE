@@ -2,6 +2,7 @@ package com.example.demo.admin;
 
 import com.example.demo.admin.dto.DashboardStatsDTO;
 import com.example.demo.admin.dto.NewsletterRequestDTO;
+import com.example.demo.admin.dto.ShipmentListDTO;
 import com.example.demo.newsletter.NewsletterService;
 import com.example.demo.newsletter.NewsletterSubscriptionDTO;
 import com.example.demo.order.Order;
@@ -196,6 +197,21 @@ public class AdminController {
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/shipments-list")
+    public ResponseEntity<List<ShipmentListDTO>> getShipmentsList() {
+        try {
+            List<ShipmentListDTO> shipments = orderService.getShipmentsForAdminList();
+            return ResponseEntity.ok(shipments);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            // Logga l'eccezione per il debug
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

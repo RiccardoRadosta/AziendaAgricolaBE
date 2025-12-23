@@ -205,9 +205,11 @@ public class BrevoEmailService {
       case "1":
         return "Spedito";
       case "2":
-        return "Annullato";
+        return "Consegnato";
       case "3":
         return "In Pre-ordine";
+      case "4":
+        return "Annullato";
       default:
         return status;
     }
