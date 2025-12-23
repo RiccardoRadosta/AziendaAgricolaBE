@@ -70,6 +70,24 @@ Quando un amministratore aggiorna lo stato di una spedizione a "Spedito" e inser
 
 - **Dashboard**: Area riservata per monitorare lo stato dell'applicazione, gestire impostazioni e visualizzare statistiche di vendita e di Vercel Analytics.
 
+#### Nota Tecnica: Caricamento Ottimizzato delle Spedizioni
+
+Per garantire la massima performance nel pannello di amministrazione, la lista delle spedizioni (`/api/admin/shipments/list`) viene caricata con una strategia ottimizzata che previene il "problema delle query N+1".
+
+**Funzionamento:**
+1.  **Query Unica per le Spedizioni**: Il sistema recupera tutte le spedizioni attive (ordini `CHILD` non consegnati) con una singola query.
+2.  **Aggregazione degli ID**: Dal risultato, vengono estratti tutti gli ID unici degli ordini "padre" e dei prodotti associati.
+3.  **Query Massive (Bulk Fetching)**: Vengono eseguite solo altre due query, utilizzando la clausola `IN`, per recuperare in un colpo solo tutti i dati anagrafici degli ordini "padre" e tutti i dettagli dei prodotti necessari.
+4.  **Join in Memoria**: I dati delle tre query vengono uniti nell'applicazione Java per costruire l'oggetto finale (`ShipmentListDTO`) da inviare al frontend.
+
+Questo approccio riduce il numero di chiamate al database da N (una per ogni spedizione) a un totale fisso di 3, migliorando drasticamente i tempi di caricamento.
+
+**Requisito Fondamentale: Indice Composito in Firestore**
+
+Questa strategia di query richiede obbligatoriamente un **indice composito** in Firestore per poter filtrare le spedizioni in modo efficiente.
+
+**Azione Richiesta:** Se l'indice non esiste, la prima volta che si esegue la chiamata API il backend genererà un errore `FAILED_PRECONDITION` nei log. **Questo è un comportamento atteso.** Il messaggio di errore conterrà un link. È sufficiente **cliccare su quel link** per essere reindirizzati alla console di Firebase, dove si potrà creare l'indice con un solo click. Una volta che l'indice è stato creato (richiede qualche minuto), la funzionalità opererà correttamente.
+
 ## Struttura del Progetto
 
 Il progetto è organizzato nei seguenti package principali: `config`, `security`, `admin`, `newsletter`, `order`, `product`, `settings`.
