@@ -331,7 +331,6 @@ public class OrderService {
         List<Order> childOrders = firestore.collection("orders")
                 .whereEqualTo("type", "CHILD")
                 .whereNotEqualTo("status", STATUS_CONSEGNATO)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get().get().toObjects(Order.class);
 
         if (childOrders.isEmpty()) {
@@ -352,7 +351,7 @@ public class OrderService {
                         return items.stream().map(item -> (String) item.get("id"));
                     } catch (IOException e) {
                         System.err.println("Failed to parse items from child order: " + child.getId());
-                        return Stream.<String>empty(); // THIS IS THE FIX
+                        return Stream.<String>empty();
                     }
                 })
                 .filter(Objects::nonNull)
