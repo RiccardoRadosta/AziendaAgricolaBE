@@ -36,6 +36,20 @@ public class OrderController {
     this.objectMapper = objectMapper;
   }
 
+  @GetMapping("/admin/orders/search")
+    public ResponseEntity<List<Order>> searchOrders(@RequestParam String type, @RequestParam String value) {
+        if (type == null || type.trim().isEmpty() || value == null || value.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            List<Order> foundOrders = orderService.searchOrders(type.trim(), value.trim());
+            return ResponseEntity.ok(foundOrders);
+        } catch (Exception e) {
+            // Log the error
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
   @PostMapping("/orders/charge")
   public ResponseEntity<Map<String, String>> chargeOrder(
     @RequestBody OrderDTO orderDTO

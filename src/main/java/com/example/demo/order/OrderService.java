@@ -44,6 +44,54 @@ public class OrderService {
         this.couponService = couponService;
     }
 
+    public List<Order> searchOrders(String type, String value) throws ExecutionException, InterruptedException {
+    Set<Order> foundOrders = new HashSet<>();
+
+    switch (type) {
+        case "order_id":
+            if (value.startsWith("ord_")) {
+                DocumentSnapshot doc = firestore.collection("orders").document(value).get().get();
+                if (doc.exists() && "PARENT".equals(doc.getString("type"))) {
+                    foundOrders.add(doc.toObject(Order.class));
+                }
+            }
+            break;
+        case "shipment_id":
+            if (value.startsWith("child_")) {
+                DocumentSnapshot childDoc = firestore.collection("orders").document(value).get().get();
+                if (childDoc.exists() && "CHILD".equals(childDoc.getString("type"))) {
+                    String parentId = childDoc.getString("parentOrderId");
+                    if (parentId != null) {
+                        Order parentOrder = getParentOrderWithChildren(parentId);
+                        if(parentOrder != null) foundOrders.add(parentOrder);
+                    }
+                }
+            }
+            break;
+        case "email":
+            firestore.collection("orders")
+                .whereEqualTo("type", "PARENT")
+                .whereEqualTo("email", value)
+                .get().get()
+                .toObjects(Order.class)
+                .forEach(foundOrders::add);
+            break;
+        case "name":
+            firestore.collection("orders")
+                .whereEqualTo("type", "PARENT")
+                .whereEqualTo("fullName", value)
+                .get().get()
+                .toObjects(Order.class)
+                .forEach(foundOrders::add);
+            break;
+        default:
+            // Type not supported
+            break;
+    }
+
+    return new ArrayList<>(foundOrders);
+}
+
     public double calculateOrderTotal(OrderDTO orderDTO) throws ExecutionException, InterruptedException, IOException {
         List<Map<String, Object>> itemsFromDTO = objectMapper.readValue(orderDTO.getItems(), new TypeReference<>() {});
         BigDecimal merchandiseTotal = BigDecimal.ZERO;
@@ -233,7 +281,7 @@ public class OrderService {
     public Order getParentOrderWithChildren(String parentId) throws ExecutionException, InterruptedException {
         DocumentSnapshot parentDoc = firestore.collection("orders").document(parentId).get().get();
         if (!parentDoc.exists() || !"PARENT".equals(parentDoc.getString("type"))) {
-            throw new RuntimeException("Parent order not found with ID: " + parentId);
+            return null;
         }
         return parentDoc.toObject(Order.class);
     }
