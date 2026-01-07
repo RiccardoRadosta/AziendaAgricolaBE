@@ -28,6 +28,10 @@ public class Order {
     private boolean newsletterSubscribed;
     private String orderNotes;
 
+    // -- Campi per la ricerca --
+    private List<String> searchKeywords;
+    private String email_lowercase;
+
     // -- Dati Finanziari (solo per PARENT) --
     private Double subtotal; // Totale finale pagato
     private Double shippingCost;

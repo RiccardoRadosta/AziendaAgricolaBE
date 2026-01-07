@@ -117,7 +117,22 @@ Il flusso di creazione è in due fasi:
 - `GET /api/orders`: Recupera la lista degli ordini "padre". (Admin)
 - `GET /api/orders/{id}`: Recupera i dettagli di un ordine padre e delle sue spedizioni (figli). (Admin)
 - `PUT /api/shipments/{id}/status`: Aggiorna lo stato di una singola spedizione (ordine "figlio"). (Admin)
-- ... (altri endpoint di gestione)
+
+#### Ricerca Ordini (Admin)
+
+- **`GET /api/admin/orders/search`**: Esegue una ricerca mirata degli ordini in base a un criterio specifico.
+  - **Parametri di Query**:
+    - `type`: Il tipo di campo su cui cercare. Valori possibili: `order_id`, `shipment_id`, `email`, `name`.
+    - `value`: Il valore da cercare.
+  - **Esempio**: `GET /api/admin/orders/search?type=email&value=test@example.com`
+  - **Risposta**: Un array JSON di ordini "padre" che corrispondono al criterio. L'array sarà vuoto se non ci sono risultati.
+  
+- **Limiti Attuali**:
+  - La ricerca è per **corrispondenza esatta** (es. cercare "Mario" non troverà "Mario Rossi").
+  - La ricerca è **case-sensitive** (cercare "mario rossi" non troverà "Mario Rossi").
+
+- **Requisito Indici Firestore**: Le ricerche per `email` e `name` richiedono la creazione di indici singoli su Firestore. In caso di indice mancante, l'API restituirà un errore `FAILED_PRECONDITION` nei log del backend con un link per la creazione rapida dell'indice. Questo è un comportamento previsto e necessario per garantire le performance.
+
 
 ### Newsletter
 

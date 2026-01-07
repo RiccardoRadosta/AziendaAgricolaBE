@@ -45,52 +45,69 @@ public class OrderService {
     }
 
     public List<Order> searchOrders(String type, String value) throws ExecutionException, InterruptedException {
-    Set<Order> foundOrders = new HashSet<>();
+        Set<Order> foundOrders = new HashSet<>();
+        String searchValue = value.toLowerCase().trim();
 
-    switch (type) {
-        case "order_id":
-            if (value.startsWith("ord_")) {
-                DocumentSnapshot doc = firestore.collection("orders").document(value).get().get();
-                if (doc.exists() && "PARENT".equals(doc.getString("type"))) {
-                    foundOrders.add(doc.toObject(Order.class));
+        switch (type) {
+            case "order_id":
+                if (value.startsWith("ord_")) {
+                    DocumentSnapshot doc = firestore.collection("orders").document(value).get().get();
+                    if (doc.exists() && "PARENT".equals(doc.getString("type"))) {
+                        foundOrders.add(doc.toObject(Order.class));
+                    }
                 }
-            }
-            break;
-        case "shipment_id":
-            if (value.startsWith("child_")) {
-                DocumentSnapshot childDoc = firestore.collection("orders").document(value).get().get();
-                if (childDoc.exists() && "CHILD".equals(childDoc.getString("type"))) {
+                break;
+            case "shipment_id":
+                if (value.startsWith("child_")) {
+                    DocumentSnapshot childDoc = firestore.collection("orders").document(value).get().get();
+                    if (childDoc.exists() && "CHILD".equals(childDoc.getString("type"))) {
+                        String parentId = childDoc.getString("parentOrderId");
+                        if (parentId != null) {
+                            Order parentOrder = getParentOrderWithChildren(parentId);
+                            if(parentOrder != null) foundOrders.add(parentOrder);
+                        }
+                    }
+                }
+                break;
+             case "tracking_number":
+                List<QueryDocumentSnapshot> childDocs = firestore.collection("orders")
+                    .whereEqualTo("type", "CHILD")
+                    .whereEqualTo("trackingNumber", value.trim())
+                    .get().get().getDocuments();
+
+                for (QueryDocumentSnapshot childDoc : childDocs) {
                     String parentId = childDoc.getString("parentOrderId");
                     if (parentId != null) {
                         Order parentOrder = getParentOrderWithChildren(parentId);
                         if(parentOrder != null) foundOrders.add(parentOrder);
                     }
                 }
-            }
-            break;
-        case "email":
-            firestore.collection("orders")
-                .whereEqualTo("type", "PARENT")
-                .whereEqualTo("email", value)
-                .get().get()
-                .toObjects(Order.class)
-                .forEach(foundOrders::add);
-            break;
-        case "name":
-            firestore.collection("orders")
-                .whereEqualTo("type", "PARENT")
-                .whereEqualTo("fullName", value)
-                .get().get()
-                .toObjects(Order.class)
-                .forEach(foundOrders::add);
-            break;
-        default:
-            // Type not supported
-            break;
-    }
+                break;
+            case "email":
+                firestore.collection("orders")
+                    .whereEqualTo("type", "PARENT")
+                    .whereEqualTo("email_lowercase", searchValue)
+                    .get().get()
+                    .toObjects(Order.class)
+                    .forEach(foundOrders::add);
+                break;
+            case "name":
+                Query query = firestore.collection("orders").whereEqualTo("type", "PARENT");
+                List<String> keywords = Arrays.asList(searchValue.split("\\s+"));
+                for (String keyword : keywords) {
+                    if (!keyword.isEmpty()) {
+                        query = query.whereArrayContains("searchKeywords", keyword);
+                    }
+                }
+                 query.get().get().toObjects(Order.class).forEach(foundOrders::add);
+                break;
+            default:
+                // Type not supported
+                break;
+        }
 
-    return new ArrayList<>(foundOrders);
-}
+        return new ArrayList<>(foundOrders);
+    }
 
     public double calculateOrderTotal(OrderDTO orderDTO) throws ExecutionException, InterruptedException, IOException {
         List<Map<String, Object>> itemsFromDTO = objectMapper.readValue(orderDTO.getItems(), new TypeReference<>() {});
@@ -218,6 +235,18 @@ public class OrderService {
 
         parent.setFullName(dto.getFullName());
         parent.setEmail(dto.getEmail());
+
+        if (dto.getEmail() != null) {
+            parent.setEmail_lowercase(dto.getEmail().toLowerCase());
+        }
+
+        if (dto.getFullName() != null && !dto.getFullName().isEmpty()) {
+            List<String> keywords = Arrays.stream(dto.getFullName().toLowerCase().split("\\s+"))
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+            parent.setSearchKeywords(keywords);
+        }
+
         parent.setPhone(dto.getPhone());
         parent.setAddress(dto.getAddress());
         parent.setCity(dto.getCity());
@@ -305,6 +334,18 @@ public class OrderService {
         Map<String, Object> updates = new HashMap<>();
         updates.put("fullName", dto.getFullName());
         updates.put("email", dto.getEmail());
+
+        if (dto.getEmail() != null) {
+            updates.put("email_lowercase", dto.getEmail().toLowerCase());
+        }
+
+        if (dto.getFullName() != null && !dto.getFullName().isEmpty()) {
+            List<String> keywords = Arrays.stream(dto.getFullName().toLowerCase().split("\\s+"))
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+            updates.put("searchKeywords", keywords);
+        }
+
         updates.put("phone", dto.getPhone());
         updates.put("address", dto.getAddress());
         updates.put("city", dto.getCity());
