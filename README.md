@@ -120,18 +120,28 @@ Il flusso di creazione è in due fasi:
 
 #### Ricerca Ordini (Admin)
 
-- **`GET /api/admin/orders/search`**: Esegue una ricerca mirata degli ordini in base a un criterio specifico.
+- **`GET /api/admin/orders/search`**: Esegue una ricerca avanzata e flessibile degli ordini.
   - **Parametri di Query**:
-    - `type`: Il tipo di campo su cui cercare. Valori possibili: `order_id`, `shipment_id`, `email`, `name`.
+    - `type`: Il criterio di ricerca. Valori possibili:
+        - `order_id`: ID esatto dell'ordine (es. `ord_...`).
+        - `shipment_id`: ID esatto della spedizione (es. `child_...`).
+        - `tracking_number`: Numero di tracciamento esatto fornito dal corriere.
+        - `email`: Indirizzo email del cliente. La ricerca è **case-insensitive**.
+        - `name`: Nome del cliente. La ricerca è **case-insensitive** e basata su **parole chiave** (es. cercando "rossi" si troverà "Mario Rossi").
     - `value`: Il valore da cercare.
-  - **Esempio**: `GET /api/admin/orders/search?type=email&value=test@example.com`
-  - **Risposta**: Un array JSON di ordini "padre" che corrispondono al criterio. L'array sarà vuoto se non ci sono risultati.
-  
-- **Limiti Attuali**:
-  - La ricerca è per **corrispondenza esatta** (es. cercare "Mario" non troverà "Mario Rossi").
-  - La ricerca è **case-sensitive** (cercare "mario rossi" non troverà "Mario Rossi").
+  - **Esempio**: `GET /api/admin/orders/search?type=name&value=rossi`
+  - **Risposta**: Un array di ordini "padre" che corrispondono al criterio. Se una spedizione viene trovata tramite `shipment_id` o `tracking_number`, viene restituito l'ordine padre corrispondente.
 
-- **Requisito Indici Firestore**: Le ricerche per `email` e `name` richiedono la creazione di indici singoli su Firestore. In caso di indice mancante, l'API restituirà un errore `FAILED_PRECONDITION` nei log del backend con un link per la creazione rapida dell'indice. Questo è un comportamento previsto e necessario per garantire le performance.
+- **Logica di Ricerca Avanzata**:
+  - **Case-Insensitive**: Per rendere la ricerca per `email` e `name` non sensibile alle maiuscole/minuscole, il sistema salva versioni normalizzate dei dati:
+    - `email_lowercase`: Una copia dell'email del cliente, sempre in minuscolo.
+    - `searchKeywords`: Un array contenente le singole parole del nome del cliente, tutte in minuscolo.
+  - **Ricerca per Nome Flessibile**: La ricerca per nome utilizza una query `array-contains`, permettendo di trovare un cliente cercando una qualsiasi delle parole che compongono il suo nome.
+
+- **Requisito Indici Firestore**: Per garantire performance ottimali, Firestore richiede indici specifici per queste query:
+  - **Indici Singoli**: Le ricerche per `email_lowercase` e `searchKeywords` richiederanno la creazione automatica (o manuale) di indici singoli.
+  - **Indice Composito**: La ricerca per `tracking_number` necessita di un **indice composito** sui campi `type` (asc) e `trackingNumber` (asc).
+  - **Come Creare gli Indici**: Se un indice manca, il backend genererà un errore `FAILED_PRECONDITION` nei log. **Questo è un comportamento atteso.** Il messaggio di errore conterrà un link. È sufficiente **cliccare su quel link** per essere reindirizzati alla console di Firebase, dove si potrà creare l'indice con un solo click. Dopo pochi minuti, la funzionalità sarà operativa.
 
 
 ### Newsletter
