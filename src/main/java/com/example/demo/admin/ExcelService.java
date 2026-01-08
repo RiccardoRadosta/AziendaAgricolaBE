@@ -41,17 +41,14 @@ public class ExcelService {
         Sheet sheet = workbook.createSheet("Riepilogo Mensile");
         sheet.setDefaultColumnWidth(25);
 
+        // Calcoli basati sulla nuova logica
         double totalNetRevenue = orders.stream()
-                .mapToDouble(o -> Optional.ofNullable(o.getSubtotal()).orElse(0.0)
-                                  + Optional.ofNullable(o.getShippingCost()).orElse(0.0)
-                                  - Optional.ofNullable(o.getDiscount()).orElse(0.0))
-                .sum();
-        double totalGrossMerchandise = orders.stream()
                 .mapToDouble(o -> Optional.ofNullable(o.getSubtotal()).orElse(0.0))
                 .sum();
         double totalShippingCollected = orders.stream()
                 .mapToDouble(o -> Optional.ofNullable(o.getShippingCost()).orElse(0.0))
                 .sum();
+        double totalProductValue = totalNetRevenue - totalShippingCollected;
         double totalDiscountValue = orders.stream()
                 .mapToDouble(o -> Optional.ofNullable(o.getDiscount()).orElse(0.0))
                 .sum();
@@ -67,7 +64,7 @@ public class ExcelService {
 
         int rowNum = 2;
         createStatRow(sheet, rowNum++, "Entrate Totali Nette", totalNetRevenue, boldStyle);
-        createStatRow(sheet, rowNum++, "Valore Merce Lordo", totalGrossMerchandise, boldStyle);
+        createStatRow(sheet, rowNum++, "Valore Prodotti", totalProductValue, boldStyle);
         createStatRow(sheet, rowNum++, "Costi di Spedizione Incassati", totalShippingCollected, boldStyle);
         createStatRow(sheet, rowNum++, "Valore Totale Sconti", totalDiscountValue, boldStyle);
         createStatRow(sheet, rowNum++, "Numero Clienti Unici", uniqueCustomers, boldStyle);
@@ -92,9 +89,6 @@ public class ExcelService {
 
         Map<String, ProductSaleStat> productStats = new HashMap<>();
         for (Order order : orders) {
-            double subtotal = Optional.ofNullable(order.getSubtotal()).orElse(0.0);
-            double discount = Optional.ofNullable(order.getDiscount()).orElse(0.0);
-
             if (order.getChildOrders() == null) continue;
             for (Order child : order.getChildOrders()) {
                 try {
@@ -102,14 +96,17 @@ public class ExcelService {
                     for (Map<String, Object> item : items) {
                         String name = (String) item.get("name");
                         int quantity = ((Number) item.get("quantity")).intValue();
-                        double originalPrice = ((Number) item.get("price")).doubleValue();
-                        double itemValue = originalPrice * quantity;
-
-                        double discountRatio = (subtotal > 0) ? itemValue / subtotal : 0;
-                        double finalPrice = itemValue - (discount * discountRatio);
+                        
+                        Object discountPriceObj = item.get("discountPrice");
+                        double finalPrice;
+                        if (discountPriceObj instanceof Number) {
+                            finalPrice = ((Number) discountPriceObj).doubleValue();
+                        } else {
+                            finalPrice = ((Number) item.get("price")).doubleValue();
+                        }
 
                         ProductSaleStat stat = productStats.computeIfAbsent(name, ProductSaleStat::new);
-                        stat.addSale(quantity, finalPrice);
+                        stat.addSale(quantity, finalPrice * quantity);
                     }
                 } catch (IOException e) {
                     System.err.println("Error processing items for product sales sheet: " + e.getMessage());
@@ -151,9 +148,7 @@ public class ExcelService {
             List<Order> children = order.getChildOrders();
             if (children == null || children.isEmpty()) continue;
 
-            double subtotal = Optional.ofNullable(order.getSubtotal()).orElse(0.0);
-            double discount = Optional.ofNullable(order.getDiscount()).orElse(0.0);
-            double orderTotal = subtotal + Optional.ofNullable(order.getShippingCost()).orElse(0.0) - discount;
+            double orderTotal = Optional.ofNullable(order.getSubtotal()).orElse(0.0);
 
             for (Order child : children) {
                 try {
@@ -161,10 +156,14 @@ public class ExcelService {
                     for (Map<String, Object> item : items) {
                         double originalPrice = ((Number) item.get("price")).doubleValue();
                         int quantity = ((Number) item.get("quantity")).intValue();
-                        double itemValue = originalPrice * quantity;
-
-                        double discountRatio = (subtotal > 0) ? itemValue / subtotal : 0;
-                        double finalItemPrice = (itemValue - (discount * discountRatio)) / quantity;
+                        
+                        Object discountPriceObj = item.get("discountPrice");
+                        double finalItemPrice;
+                        if (discountPriceObj instanceof Number) {
+                            finalItemPrice = ((Number) discountPriceObj).doubleValue();
+                        } else {
+                            finalItemPrice = originalPrice;
+                        }
 
                         Row row = sheet.createRow(rowNum++);
                         row.createCell(0).setCellValue(order.getId());
