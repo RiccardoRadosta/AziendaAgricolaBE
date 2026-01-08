@@ -12,12 +12,15 @@ import com.example.demo.settings.Setting;
 import com.example.demo.settings.SettingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -36,7 +39,8 @@ public class AdminController {
     private final NewsletterService newsletterService;
     private final VercelAnalyticsService vercelAnalyticsService;
     private final SettingService settingService;
-    private final ObjectMapper objectMapper; // Per serializzare l'errore
+    private final ObjectMapper objectMapper;
+    private final ExcelService excelService;
 
     @Value("${admin.username}")
     private String adminUsername;
@@ -44,7 +48,7 @@ public class AdminController {
     @Value("${admin.password}")
     private String adminPassword;
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService, SettingService settingService, ObjectMapper objectMapper) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService, SettingService settingService, ObjectMapper objectMapper, ExcelService excelService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
         this.dashboardService = dashboardService;
@@ -52,11 +56,12 @@ public class AdminController {
         this.newsletterService = newsletterService;
         this.vercelAnalyticsService = vercelAnalyticsService;
         this.settingService = settingService;
-        this.objectMapper = objectMapper; // Inietta ObjectMapper
+        this.objectMapper = objectMapper;
+        this.excelService = excelService;
     }
 
     @PostMapping("/export")
-    public ResponseEntity<Map<String, String>> exportOrders(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<?> exportOrders(@RequestBody Map<String, Object> payload) {
         try {
             if (!payload.containsKey("month") || !payload.containsKey("year")) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Month and year are required."));
@@ -73,19 +78,27 @@ public class AdminController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Year must be greater than 2000."));
             }
 
-            boolean ordersExist = orderService.hasOrdersInPeriod(month, year);
-
-            if (ordersExist) {
-                return ResponseEntity.ok(Map.of("status", "ok"));
-            } else {
-                return ResponseEntity.ok(Map.of("status", "no"));
+            List<Order> orders = orderService.getOrdersForExport(month, year);
+            if (orders.isEmpty()) {
+                return ResponseEntity.ok(Map.of("status", "no-orders"));
             }
+
+            ByteArrayInputStream bis = excelService.createExcelReport(orders);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Content-Disposition", "attachment; filename=orders.xlsx");
+
+            return ResponseEntity
+                    .ok()
+                    .headers(headers)
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(new InputStreamResource(bis));
 
         } catch (ClassCastException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid data type for month or year."));
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (ExecutionException | InterruptedException | IOException e) {
             Thread.currentThread().interrupt();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to check for orders: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to export orders: " + e.getMessage()));
         }
     }
 
@@ -95,17 +108,11 @@ public class AdminController {
             List<ShipmentListDTO> shipments = orderService.getShipmentsForAdminList();
             
             String jsonOutput = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(shipments);
-            System.out.println("\n--- DEBUG SPEDIZIONI (JSON) ---");
-            System.out.println(jsonOutput);
-            System.out.println("------------------------\n");
 
             return ResponseEntity.ok(shipments);
             
         } catch (Throwable t) {
-            // CATTURA QUALSIASI ERRORE (INCLUSI ERRORI GRAVI)
-            System.err.println("\n--- ERRORE FATALE IN getShipmentsList ---");
             t.printStackTrace();
-            System.err.println("-------------------------------------\n");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                  .body(Map.of("error", "Errore interno del server durante il recupero delle spedizioni.", "message", t.getMessage()));
         }

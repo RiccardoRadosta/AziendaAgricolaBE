@@ -1,5 +1,4 @@
 package com.example.demo.order;
-
 import com.example.demo.admin.dto.ShipmentListDTO;
 import com.example.demo.coupon.Coupon;
 import com.example.demo.coupon.CouponService;
@@ -589,5 +588,58 @@ public class OrderService {
             partitions.add(new ArrayList<>(list.subList(i, Math.min(i + size, list.size()))));
         }
         return partitions;
+    }
+
+    public List<Order> getOrdersForExport(int month, int year) throws ExecutionException, InterruptedException, IOException {
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        cal.set(year, month - 1, 1, 0, 0, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date startDate = cal.getTime();
+
+        cal.add(Calendar.MONTH, 1);
+        Date endDate = cal.getTime();
+
+        Timestamp startTimestamp = Timestamp.of(startDate);
+        Timestamp endTimestamp = Timestamp.of(endDate);
+
+        List<Order> parentOrders = firestore.collection("orders")
+                .whereEqualTo("type", "PARENT")
+                .whereGreaterThanOrEqualTo("createdAt", startTimestamp)
+                .whereLessThan("createdAt", endTimestamp)
+                .get().get().toObjects(Order.class);
+
+        if (parentOrders.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<String> allProductIds = new HashSet<>();
+        for (Order parent : parentOrders) {
+            List<Order> children = getChildOrders(parent.getId());
+            parent.setChildOrders(children); // Important: attach children to parent
+            for (Order child : children) {
+                List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
+                for (Map<String, Object> item : items) {
+                    allProductIds.add((String) item.get("id"));
+                }
+            }
+        }
+
+        Map<String, Product> productsMap = fetchProductsInPartitions(new ArrayList<>(allProductIds));
+
+        for (Order parent : parentOrders) {
+            if (parent.getChildOrders() == null) continue;
+            for (Order child : parent.getChildOrders()) {
+                List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
+                for (Map<String, Object> item : items) {
+                    Product product = productsMap.get((String) item.get("id"));
+                    if (product != null) {
+                        item.put("name", product.getName());
+                    }
+                }
+                child.setItems(objectMapper.writeValueAsString(items));
+            }
+        }
+
+        return parentOrders;
     }
 }

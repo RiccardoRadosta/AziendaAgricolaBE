@@ -2,6 +2,7 @@ package com.example.demo.order;
 
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.annotation.DocumentId;
+import com.google.cloud.firestore.annotation.Exclude;
 import lombok.Data;
 
 import java.util.List;
@@ -15,6 +16,9 @@ public class Order {
     private String type; // "PARENT" o "CHILD"
     private String parentOrderId;
     private List<String> childOrderIds;
+
+    @Exclude // Questo campo non verrà salvato in Firestore
+    private List<Order> childOrders;
 
     // -- Dati del Cliente (solo per PARENT) --
     private String fullName;
