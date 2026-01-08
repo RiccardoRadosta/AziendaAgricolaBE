@@ -12,7 +12,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class ExcelService {
@@ -42,7 +41,6 @@ public class ExcelService {
         Sheet sheet = workbook.createSheet("Riepilogo Mensile");
         sheet.setDefaultColumnWidth(25);
 
-        // Calcoli
         double totalNetRevenue = orders.stream()
                 .mapToDouble(o -> Optional.ofNullable(o.getSubtotal()).orElse(0.0)
                                   + Optional.ofNullable(o.getShippingCost()).orElse(0.0)
@@ -62,7 +60,6 @@ public class ExcelService {
         long childShipmentsCount = orders.stream().map(Order::getChildOrders).filter(Objects::nonNull).mapToLong(List::size).sum();
         double averageOrderValue = (parentOrdersCount > 0) ? totalNetRevenue / parentOrdersCount : 0;
 
-        // Scrittura
         Row titleRow = sheet.createRow(0);
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("Riepilogo del Business Mensile");
@@ -85,7 +82,7 @@ public class ExcelService {
     private void createProductSalesSheet(Workbook workbook, List<Order> orders, CellStyle headerStyle) {
         Sheet sheet = workbook.createSheet("Vendite per Prodotto");
 
-        String[] headers = {"ID Prodotto", "Nome Prodotto", "Quantità Totale Venduta", "Ricavo Generato"};
+        String[] headers = {"Nome Prodotto", "Quantità Totale Venduta", "Ricavo Generato"};
         Row headerRow = sheet.createRow(0);
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
@@ -95,18 +92,24 @@ public class ExcelService {
 
         Map<String, ProductSaleStat> productStats = new HashMap<>();
         for (Order order : orders) {
+            double subtotal = Optional.ofNullable(order.getSubtotal()).orElse(0.0);
+            double discount = Optional.ofNullable(order.getDiscount()).orElse(0.0);
+
             if (order.getChildOrders() == null) continue;
             for (Order child : order.getChildOrders()) {
                 try {
                     List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
                     for (Map<String, Object> item : items) {
-                        String id = (String) item.get("id");
                         String name = (String) item.get("name");
                         int quantity = ((Number) item.get("quantity")).intValue();
-                        double price = ((Number) item.get("price")).doubleValue();
+                        double originalPrice = ((Number) item.get("price")).doubleValue();
+                        double itemValue = originalPrice * quantity;
 
-                        ProductSaleStat stat = productStats.computeIfAbsent(id, k -> new ProductSaleStat(name));
-                        stat.addSale(quantity, price);
+                        double discountRatio = (subtotal > 0) ? itemValue / subtotal : 0;
+                        double finalPrice = itemValue - (discount * discountRatio);
+
+                        ProductSaleStat stat = productStats.computeIfAbsent(name, ProductSaleStat::new);
+                        stat.addSale(quantity, finalPrice);
                     }
                 } catch (IOException e) {
                     System.err.println("Error processing items for product sales sheet: " + e.getMessage());
@@ -118,9 +121,8 @@ public class ExcelService {
         for (Map.Entry<String, ProductSaleStat> entry : productStats.entrySet()) {
             Row row = sheet.createRow(rowNum++);
             row.createCell(0).setCellValue(entry.getKey());
-            row.createCell(1).setCellValue(entry.getValue().getName());
-            row.createCell(2).setCellValue(entry.getValue().getTotalQuantity());
-            row.createCell(3).setCellValue(entry.getValue().getTotalRevenue());
+            row.createCell(1).setCellValue(entry.getValue().getTotalQuantity());
+            row.createCell(2).setCellValue(entry.getValue().getTotalRevenue());
         }
 
         for (int i = 0; i < headers.length; i++) {
@@ -128,12 +130,12 @@ public class ExcelService {
         }
     }
 
-    private void createOrdersListSheet(Workbook workbook, List<Order> orders, CellStyle headerStyle) throws IOException {
+    private void createOrdersListSheet(Workbook workbook, List<Order> orders, CellStyle headerStyle) {
         Sheet sheet = workbook.createSheet("Elenco Ordini");
 
         String[] headers = {
-            "Order ID", "Data Ordine", "Cliente", "Email", "Totale Ordine",
-            "Spedizione ID", "Stato Spedizione", "Articolo", "Quantità", "Prezzo Unitario"
+            "Order ID", "Data Ordine", "Cliente", "Email", "Totale Ordine", "Spedizione ID",
+            "Stato Spedizione", "Articolo", "Quantità", "Prezzo Originale", "Prezzo Finale"
         };
         Row headerRow = sheet.createRow(0);
         for (int i = 0; i < headers.length; i++) {
@@ -149,25 +151,33 @@ public class ExcelService {
             List<Order> children = order.getChildOrders();
             if (children == null || children.isEmpty()) continue;
 
-            double total = Optional.ofNullable(order.getSubtotal()).orElse(0.0)
-                         + Optional.ofNullable(order.getShippingCost()).orElse(0.0)
-                         - Optional.ofNullable(order.getDiscount()).orElse(0.0);
+            double subtotal = Optional.ofNullable(order.getSubtotal()).orElse(0.0);
+            double discount = Optional.ofNullable(order.getDiscount()).orElse(0.0);
+            double orderTotal = subtotal + Optional.ofNullable(order.getShippingCost()).orElse(0.0) - discount;
 
             for (Order child : children) {
                 try {
                     List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
                     for (Map<String, Object> item : items) {
+                        double originalPrice = ((Number) item.get("price")).doubleValue();
+                        int quantity = ((Number) item.get("quantity")).intValue();
+                        double itemValue = originalPrice * quantity;
+
+                        double discountRatio = (subtotal > 0) ? itemValue / subtotal : 0;
+                        double finalItemPrice = (itemValue - (discount * discountRatio)) / quantity;
+
                         Row row = sheet.createRow(rowNum++);
                         row.createCell(0).setCellValue(order.getId());
                         row.createCell(1).setCellValue(sdf.format(order.getCreatedAt().toDate()));
                         row.createCell(2).setCellValue(order.getFullName());
                         row.createCell(3).setCellValue(order.getEmail());
-                        row.createCell(4).setCellValue(total);
+                        row.createCell(4).setCellValue(orderTotal);
                         row.createCell(5).setCellValue(child.getId());
                         row.createCell(6).setCellValue(convertStatus(child.getStatus()));
                         row.createCell(7).setCellValue((String) item.get("name"));
-                        row.createCell(8).setCellValue(((Number) item.get("quantity")).intValue());
-                        row.createCell(9).setCellValue(((Number) item.get("price")).doubleValue());
+                        row.createCell(8).setCellValue(quantity);
+                        row.createCell(9).setCellValue(originalPrice);
+                        row.createCell(10).setCellValue(finalItemPrice);
                     }
                 } catch (IOException e) {
                     System.err.println("Errore durante la lettura degli articoli per l'ordine figlio: " + child.getId());
@@ -226,7 +236,6 @@ public class ExcelService {
         };
     }
 
-    // Classe helper per le statistiche di vendita dei prodotti
     private static class ProductSaleStat {
         private final String name;
         private int totalQuantity = 0;
@@ -236,21 +245,13 @@ public class ExcelService {
             this.name = name;
         }
 
-        public void addSale(int quantity, double price) {
+        public void addSale(int quantity, double revenue) {
             this.totalQuantity += quantity;
-            this.totalRevenue += (quantity * price);
+            this.totalRevenue += revenue;
         }
 
-        public String getName() {
-            return name;
-        }
-
-        public int getTotalQuantity() {
-            return totalQuantity;
-        }
-
-        public double getTotalRevenue() {
-            return totalRevenue;
-        }
+        public String getName() { return name; }
+        public int getTotalQuantity() { return totalQuantity; }
+        public double getTotalRevenue() { return totalRevenue; }
     }
 }
