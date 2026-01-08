@@ -13,6 +13,7 @@ import com.example.demo.settings.SettingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import java.io.IOException;
@@ -42,6 +43,30 @@ public class OrderService {
         this.productService = productService;
         this.settingService = settingService;
         this.couponService = couponService;
+    }
+
+    public boolean hasOrdersInPeriod(int month, int year) throws ExecutionException, InterruptedException {
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        cal.set(year, month - 1, 1, 0, 0, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date startDate = cal.getTime();
+
+        cal.add(Calendar.MONTH, 1);
+        Date endDate = cal.getTime();
+
+        Timestamp startTimestamp = Timestamp.of(startDate);
+        Timestamp endTimestamp = Timestamp.of(endDate);
+
+        Query query = firestore.collection("orders")
+                .whereEqualTo("type", "PARENT")
+                .whereGreaterThanOrEqualTo("createdAt", startTimestamp)
+                .whereLessThan("createdAt", endTimestamp)
+                .limit(1);
+
+        ApiFuture<QuerySnapshot> future = query.get();
+        QuerySnapshot snapshot = future.get();
+
+        return !snapshot.isEmpty();
     }
 
     public List<Order> searchOrders(String type, String value) throws ExecutionException, InterruptedException {

@@ -55,6 +55,40 @@ public class AdminController {
         this.objectMapper = objectMapper; // Inietta ObjectMapper
     }
 
+    @PostMapping("/export")
+    public ResponseEntity<Map<String, String>> exportOrders(@RequestBody Map<String, Object> payload) {
+        try {
+            if (!payload.containsKey("month") || !payload.containsKey("year")) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Month and year are required."));
+            }
+
+            int month = (Integer) payload.get("month");
+            int year = (Integer) payload.get("year");
+
+            if (month < 1 || month > 12) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Month must be between 1 and 12."));
+            }
+
+            if (year < 2000) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Year must be greater than 2000."));
+            }
+
+            boolean ordersExist = orderService.hasOrdersInPeriod(month, year);
+
+            if (ordersExist) {
+                return ResponseEntity.ok(Map.of("status", "ok"));
+            } else {
+                return ResponseEntity.ok(Map.of("status", "no"));
+            }
+
+        } catch (ClassCastException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid data type for month or year."));
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to check for orders: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/shipments-list")
     public ResponseEntity<?> getShipmentsList() {
         try {
