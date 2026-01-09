@@ -19,4 +19,7 @@ public class Product {
     private boolean featured = false;
     private Double discountPrice;
     private String preSaleDate;
+    private String ingredients;
+    private String origin;
+    private String nutrition;
 }

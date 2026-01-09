@@ -19,4 +19,7 @@ public class ProductDTO {
     private boolean featured;
     private Double discountPrice;
     private String preSaleDate;
+    private String ingredients;
+    private String origin;
+    private String nutrition;
 }

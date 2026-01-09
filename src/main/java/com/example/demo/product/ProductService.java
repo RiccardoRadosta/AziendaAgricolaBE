@@ -55,6 +55,9 @@ public class ProductService {
         product.setFeatured(productDTO.isFeatured());
         product.setDiscountPrice(productDTO.getDiscountPrice());
         product.setPreSaleDate(productDTO.getPreSaleDate());
+        product.setIngredients(productDTO.getIngredients());
+        product.setOrigin(productDTO.getOrigin());
+        product.setNutrition(productDTO.getNutrition());
 
         ApiFuture<DocumentReference> future = productsCollection.add(product);
         return future.get().getId();
@@ -74,6 +77,9 @@ public class ProductService {
         updates.put("featured", productDTO.isFeatured());
         updates.put("discountPrice", productDTO.getDiscountPrice());
         updates.put("preSaleDate", productDTO.getPreSaleDate());
+        updates.put("ingredients", productDTO.getIngredients());
+        updates.put("origin", productDTO.getOrigin());
+        updates.put("nutrition", productDTO.getNutrition());
 
         docRef.update(updates).get();
     }
