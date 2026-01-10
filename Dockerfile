@@ -17,6 +17,10 @@ RUN mvn package -DskipTests
 # Usa un'immagine base più leggera per l'ambiente di runtime
 FROM openjdk:17.0.2-slim
 
+# Installa libfreetype6, necessaria per la gestione dei font da parte di Java AWT,
+# utilizzata da librerie come Apache POI per la generazione di file Excel.
+RUN apt-get update && apt-get install -y libfreetype6 && rm -rf /var/lib/apt/lists/*
+
 # Copia solo il .jar dalla fase di build
 COPY --from=build /home/app/target/demo-0.0.1-SNAPSHOT.jar /usr/local/lib/app.jar
 
