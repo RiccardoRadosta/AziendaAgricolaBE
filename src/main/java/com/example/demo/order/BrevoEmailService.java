@@ -37,6 +37,9 @@ public class BrevoEmailService {
   @Value("${brevo.sender.email}")
   private String senderEmail;
 
+  @Value("${frontend.url}")
+  private String frontendUrl;
+
   public BrevoEmailService(
     RestTemplate restTemplate,
     ObjectMapper objectMapper,
@@ -56,6 +59,8 @@ public class BrevoEmailService {
     ctx.setVariable("customerName", parentOrder.getFullName());
     ctx.setVariable("shipmentId", shipment.getId()); // ID della spedizione figlio
     ctx.setVariable("currentYear", Year.now().getValue());
+    ctx.setVariable("termsUrl", frontendUrl + "/terms");
+
 
     Map<String, Object> shipmentForTemplate = new HashMap<>();
     shipmentForTemplate.put("trackingNumber", shipment.getTrackingNumber());
@@ -90,6 +95,8 @@ public class BrevoEmailService {
     ctx.setVariable("customerName", parentOrder.getFullName());
     ctx.setVariable("orderId", parentOrder.getId());
     ctx.setVariable("currentYear", Year.now().getValue());
+    ctx.setVariable("termsUrl", frontendUrl + "/terms");
+
 
     // --- FIX: Gestione robusta dei valori numerici ---
     // Recupera i valori, usando 0.0 come fallback sicuro se sono null.
