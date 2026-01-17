@@ -26,6 +26,7 @@ public class ShipmentListDTO {
     private int packageIndex;
     private int totalPackages;
     private List<ShipmentItem> items;
+    private Integer richiestaFattura; // Aggiunto per visibilità rapida
 
     @Data
     @NoArgsConstructor

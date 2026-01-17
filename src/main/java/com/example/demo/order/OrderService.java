@@ -519,6 +519,8 @@ public class OrderService {
         dto.setRecipientPostalCode(parent.getPostalCode());
         dto.setOrderNotes(parent.getOrderNotes());
 
+        dto.setRichiestaFattura(parent.getRichiestaFattura());
+
         int totalPackages = parent.getChildOrderIds() != null ? parent.getChildOrderIds().size() : 1;
         int packageIndex = parent.getChildOrderIds() != null ? parent.getChildOrderIds().indexOf(child.getId()) + 1 : 1;
         dto.setTotalPackages(totalPackages);
