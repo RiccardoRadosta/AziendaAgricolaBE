@@ -29,4 +29,23 @@ public class OrderDTO {
 
     // Dati di pagamento
     private String paymentToken;
+
+    // Campi fatturazione (opzionali)
+    private Integer richiestaFattura; // 1 se richiesta, 0 o null altrimenti
+    private String indirizzoFatturazione;
+    private String capFatturazione;
+    private String cittaFatturazione;
+    private String provinciaFatturazione;
+    private String nazioneFatturazione;
+    private String tipoFatturazione; // "persona_fisica" o "azienda"
+
+    // Dati per persona fisica
+    private String nomeFatturazione;
+    private String cognomeFatturazione;
+    private String codiceFiscaleFatturazione;
+
+    // Dati per azienda
+    private String ragioneSocialeFatturazione;
+    private String partitaIvaFatturazione;
+    private String codiceUnivocoSdiFatturazione;
 }

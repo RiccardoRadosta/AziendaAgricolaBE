@@ -280,6 +280,21 @@ public class OrderService {
         parent.setNewsletterSubscribed(dto.isNewsletterSubscribed());
         parent.setOrderNotes(dto.getOrderNotes());
 
+        // Dati di fatturazione
+        parent.setRichiestaFattura(dto.getRichiestaFattura());
+        parent.setIndirizzoFatturazione(dto.getIndirizzoFatturazione());
+        parent.setCapFatturazione(dto.getCapFatturazione());
+        parent.setCittaFatturazione(dto.getCittaFatturazione());
+        parent.setProvinciaFatturazione(dto.getProvinciaFatturazione());
+        parent.setNazioneFatturazione(dto.getNazioneFatturazione());
+        parent.setTipoFatturazione(dto.getTipoFatturazione());
+        parent.setNomeFatturazione(dto.getNomeFatturazione());
+        parent.setCognomeFatturazione(dto.getCognomeFatturazione());
+        parent.setCodiceFiscaleFatturazione(dto.getCodiceFiscaleFatturazione());
+        parent.setRagioneSocialeFatturazione(dto.getRagioneSocialeFatturazione());
+        parent.setPartitaIvaFatturazione(dto.getPartitaIvaFatturazione());
+        parent.setCodiceUnivocoSdiFatturazione(dto.getCodiceUnivocoSdiFatturazione());
+
         parent.setSubtotal(dto.getSubtotal());
         parent.setShippingCost(dto.getShippingCost());
         parent.setDiscount(dto.getDiscount());

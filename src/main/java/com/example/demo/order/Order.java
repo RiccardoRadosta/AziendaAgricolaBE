@@ -32,6 +32,21 @@ public class Order {
     private boolean newsletterSubscribed;
     private String orderNotes;
 
+    // -- Dati di Fatturazione (solo per PARENT) --
+    private Integer richiestaFattura;
+    private String indirizzoFatturazione;
+    private String capFatturazione;
+    private String cittaFatturazione;
+    private String provinciaFatturazione;
+    private String nazioneFatturazione;
+    private String tipoFatturazione;
+    private String nomeFatturazione;
+    private String cognomeFatturazione;
+    private String codiceFiscaleFatturazione;
+    private String ragioneSocialeFatturazione;
+    private String partitaIvaFatturazione;
+    private String codiceUnivocoSdiFatturazione;
+
     // -- Campi per la ricerca --
     private List<String> searchKeywords;
     private String email_lowercase;
