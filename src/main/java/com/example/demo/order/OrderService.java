@@ -659,4 +659,9 @@ public class OrderService {
 
         return parentOrders;
     }
+
+    public void updateInvoiceRequestStatus(String orderId, int status) throws ExecutionException, InterruptedException {
+        DocumentReference orderRef = firestore.collection("orders").document(orderId);
+        orderRef.update("richiestaFattura", status).get();
+    }
 }

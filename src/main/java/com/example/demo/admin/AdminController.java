@@ -76,6 +76,10 @@ public class AdminController {
             }
 
             brevoEmailService.sendInvoiceEmail(email, orderId, file);
+            
+            // Aggiorna lo stato della richiesta fattura a 2 (Inviata)
+            orderService.updateInvoiceRequestStatus(orderId, 2);
+
             return ResponseEntity.ok(Map.of("success", true, "message", "Fattura inviata con successo."));
 
         } catch (Exception e) {
