@@ -5,6 +5,7 @@ import com.example.demo.admin.dto.NewsletterRequestDTO;
 import com.example.demo.admin.dto.ShipmentListDTO;
 import com.example.demo.newsletter.NewsletterService;
 import com.example.demo.newsletter.NewsletterSubscriptionDTO;
+import com.example.demo.order.BrevoEmailService;
 import com.example.demo.order.Order;
 import com.example.demo.order.OrderService;
 import com.example.demo.security.JwtUtil;
@@ -19,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -41,6 +43,7 @@ public class AdminController {
     private final SettingService settingService;
     private final ObjectMapper objectMapper;
     private final ExcelService excelService;
+    private final BrevoEmailService brevoEmailService;
 
     @Value("${admin.username}")
     private String adminUsername;
@@ -48,7 +51,7 @@ public class AdminController {
     @Value("${admin.password}")
     private String adminPassword;
 
-    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService, SettingService settingService, ObjectMapper objectMapper, ExcelService excelService) {
+    public AdminController(JwtUtil jwtUtil, OrderService orderService, DashboardService dashboardService, CloudinaryService cloudinaryService, NewsletterService newsletterService, VercelAnalyticsService vercelAnalyticsService, SettingService settingService, ObjectMapper objectMapper, ExcelService excelService, BrevoEmailService brevoEmailService) {
         this.jwtUtil = jwtUtil;
         this.orderService = orderService;
         this.dashboardService = dashboardService;
@@ -58,6 +61,28 @@ public class AdminController {
         this.settingService = settingService;
         this.objectMapper = objectMapper;
         this.excelService = excelService;
+        this.brevoEmailService = brevoEmailService;
+    }
+
+    @PostMapping("/send-invoice")
+    public ResponseEntity<?> sendInvoice(
+            @RequestParam("email") String email,
+            @RequestParam("orderId") String orderId,
+            @RequestParam("file") MultipartFile file
+    ) {
+        try {
+            if (email == null || email.isEmpty() || orderId == null || orderId.isEmpty() || file == null || file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Email, Order ID, and File are required."));
+            }
+
+            brevoEmailService.sendInvoiceEmail(email, orderId, file);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Fattura inviata con successo."));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Errore durante l'invio della fattura: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/export")

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.time.Year;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
@@ -48,6 +50,20 @@ public class BrevoEmailService {
     this.restTemplate = restTemplate;
     this.objectMapper = objectMapper;
     this.templateEngine = templateEngine;
+  }
+
+  public void sendInvoiceEmail(String toEmail, String orderId, MultipartFile attachment) {
+      final Context ctx = new Context();
+      ctx.setVariable("orderId", orderId);
+      ctx.setVariable("currentYear", Year.now().getValue());
+
+      final String htmlContent = this.templateEngine.process(
+          "email/invoice-notification-template",
+          ctx
+      );
+
+      String subject = "Fattura relativa al tuo ordine #" + orderId;
+      sendEmailWithAttachment(toEmail, subject, htmlContent, attachment);
   }
 
   public void sendShippedOrderEmail(
@@ -151,6 +167,10 @@ public class BrevoEmailService {
   }
 
   public void sendEmail(String toEmail, String subject, String htmlContent) {
+      sendEmailWithAttachment(toEmail, subject, htmlContent, null);
+  }
+
+  public void sendEmailWithAttachment(String toEmail, String subject, String htmlContent, MultipartFile attachment) {
     HttpHeaders headers = new HttpHeaders();
     headers.set("api-key", apiKey);
     headers.setContentType(MediaType.APPLICATION_JSON);
@@ -167,6 +187,19 @@ public class BrevoEmailService {
     body.put("to", Collections.singletonList(to));
     body.put("subject", subject);
     body.put("htmlContent", htmlContent);
+
+    if (attachment != null && !attachment.isEmpty()) {
+        try {
+            Map<String, String> attachmentMap = new HashMap<>();
+            attachmentMap.put("name", attachment.getOriginalFilename());
+            attachmentMap.put("content", Base64.getEncoder().encodeToString(attachment.getBytes()));
+            body.put("attachment", Collections.singletonList(attachmentMap));
+        } catch (IOException e) {
+            System.err.println("Errore durante la lettura dell'allegato: " + e.getMessage());
+            // Potremmo decidere di lanciare un'eccezione o inviare senza allegato,
+            // qui logghiamo e proseguiamo (o potremmo interrompere).
+        }
+    }
 
     HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 

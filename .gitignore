@@ -1,5 +1,6 @@
 # File di configurazione locale
 application.properties
+env.yaml
 
 # Log files
 *.log

@@ -49,6 +49,12 @@ Quando un amministratore aggiorna lo stato di una spedizione a "Spedito" e inser
 - **Chiarezza per il Cliente**: L'email si concentra esclusivamente sulla spedizione specifica (ordine "figlio"), mostrando l'**ID della spedizione** e il **numero di tracciamento**.
 - **Contenuto Essenziale**: Include la lista degli articoli presenti in quella specifica spedizione, evitando confusione nel caso di ordini suddivisi.
 
+#### Invio Fatture
+L'amministratore può inviare manualmente la fattura relativa a un ordine specifico tramite il pannello di amministrazione.
+- **Endpoint**: `POST /api/admin/send-invoice`
+- **Funzionamento**: L'amministratore carica il file PDF della fattura. Il sistema invia un'email al cliente con il PDF in allegato, utilizzando un template standardizzato.
+- **Configurazione Upload**: Il limite per l'upload dei file è stato aumentato a 10MB per consentire l'invio di documenti PDF anche di grandi dimensioni.
+
 ### 5. Gestione degli Ordini con Logica Padre-Figlio
 
 - **Struttura Padre-Figlio**: Un acquisto genera un ordine **"padre"** (dati anagrafici e finanziari) e uno o più ordini **"figlio"** (le singole spedizioni).

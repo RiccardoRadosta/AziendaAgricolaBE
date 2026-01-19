@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Fattura Ordine</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            color: #333333;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 32px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #dddddd;
+        }
+        .header {
+            background-color: #0046BF;
+            color: #ffffff;
+            padding: 24px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: normal;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+        .content {
+            padding: 32px 28px;
+        }
+        .content p {
+            font-size: 15px;
+            margin: 10px 0;
+        }
+        .footer {
+            background-color: #f4f4f4;
+            color: #777777;
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+        }
+        .footer p {
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Fattura Disponibile</h1>
+    </div>
+    <div class="content">
+        <p>Gentile cliente,</p>
+        <p>
+            In allegato trovi la fattura richiesta relativa al tuo ordine <strong th:text="|#${orderId}|">#12345</strong>.
+        </p>
+        <p>
+            Grazie per aver scelto i nostri prodotti.
+        </p>
+        <p>
+            Cordiali saluti,<br/>
+            Il team dell'Azienda Agricola
+        </p>
+    </div>
+    <div class="footer">
+        <p>Azienda Agricola &copy; <span th:text="${currentYear}">2024</span>. Tutti i diritti riservati.</p>
+        <p>Questa è un’email automatica, si prega di non rispondere.</p>
+    </div>
+</div>
+</body>
+</html>
