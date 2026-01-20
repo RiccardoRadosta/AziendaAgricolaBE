@@ -12,13 +12,12 @@ import com.example.demo.settings.SettingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -45,6 +44,30 @@ public class OrderService {
         this.productService = productService;
         this.settingService = settingService;
         this.couponService = couponService;
+    }
+
+    public boolean hasOrdersInPeriod(int month, int year) throws ExecutionException, InterruptedException {
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        cal.set(year, month - 1, 1, 0, 0, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date startDate = cal.getTime();
+
+        cal.add(Calendar.MONTH, 1);
+        Date endDate = cal.getTime();
+
+        Timestamp startTimestamp = Timestamp.of(startDate);
+        Timestamp endTimestamp = Timestamp.of(endDate);
+
+        Query query = firestore.collection("orders")
+                .whereEqualTo("type", "PARENT")
+                .whereGreaterThanOrEqualTo("createdAt", startTimestamp)
+                .whereLessThan("createdAt", endTimestamp)
+                .limit(1);
+
+        ApiFuture<QuerySnapshot> future = query.get();
+        QuerySnapshot snapshot = future.get();
+
+        return !snapshot.isEmpty();
     }
 
     public List<Order> searchOrders(String type, String value) throws ExecutionException, InterruptedException {
@@ -87,12 +110,12 @@ public class OrderService {
                 }
                 break;
             case "email":
-                List<Order> ordersByEmail = firestore.collection("orders")
+                firestore.collection("orders")
                     .whereEqualTo("type", "PARENT")
                     .whereEqualTo("email_lowercase", searchValue)
                     .get().get()
-                    .toObjects(Order.class);
-                foundOrders.addAll(ordersByEmail);
+                    .toObjects(Order.class)
+                    .forEach(foundOrders::add);
                 break;
             case "name":
                 Query query = firestore.collection("orders").whereEqualTo("type", "PARENT");
@@ -102,8 +125,7 @@ public class OrderService {
                         query = query.whereArrayContains("searchKeywords", keyword);
                     }
                 }
-                 List<Order> ordersByName = query.get().get().toObjects(Order.class);
-                 foundOrders.addAll(ordersByName);
+                 query.get().get().toObjects(Order.class).forEach(foundOrders::add);
                 break;
             default:
                 // Type not supported
@@ -127,14 +149,11 @@ public class OrderService {
             }
             Product product = productDoc.toObject(Product.class);
 
-            if (product != null) {
-                Double discountPrice = product.getDiscountPrice();
-                double priceToUse = (discountPrice != null && discountPrice > 0)
-                    ? discountPrice
-                    : product.getPrice();
+            double priceToUse = (product.getDiscountPrice() != null && product.getDiscountPrice() > 0)
+                ? product.getDiscountPrice()
+                : product.getPrice();
 
-                merchandiseTotal = merchandiseTotal.add(BigDecimal.valueOf(priceToUse).multiply(BigDecimal.valueOf(quantity)));
-            }
+            merchandiseTotal = merchandiseTotal.add(BigDecimal.valueOf(priceToUse).multiply(BigDecimal.valueOf(quantity)));
         }
 
         BigDecimal discountAmount = BigDecimal.ZERO;
@@ -143,7 +162,7 @@ public class OrderService {
             if (couponOpt.isPresent()) {
                 Coupon coupon = couponOpt.get();
                 if (coupon.getDiscountType() == DiscountType.PERCENTAGE) {
-                    BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                    BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"));
                     discountAmount = merchandiseTotal.multiply(percentage);
                 } else { // FIXED_AMOUNT
                     discountAmount = coupon.getDiscountValue();
@@ -330,11 +349,13 @@ public class OrderService {
         batch.set(childRef, child);
     }
 
-    public List<Order> getParentOrders() throws ExecutionException, InterruptedException {
+    public List<Order> getParentOrders(Integer status) throws ExecutionException, InterruptedException {
         Query query = firestore.collection("orders").whereEqualTo("type", "PARENT");
 
-        // Nota: Il filtro per status qui è stato rimosso perché 'status' su PARENT è generico.
-        // Se necessario, implementare una logica di filtro più complessa basata sui figli.
+        if (status != null) {
+            // Filter logic might be inaccurate as parent status is generic.
+            // For precise filtering, one should query the children's status.
+        }
 
         List<Order> orders = query.get().get().toObjects(Order.class);
 
@@ -437,20 +458,11 @@ public class OrderService {
             throw new RuntimeException("Parent order not found with ID: " + parentId);
         }
 
-        // Fix: Unchecked cast warning
-        Object childIdsObj = parentDoc.get("childOrderIds");
-        List<String> childIds = new ArrayList<>();
-        if (childIdsObj instanceof List<?>) {
-            for (Object item : (List<?>) childIdsObj) {
-                if (item instanceof String) {
-                    childIds.add((String) item);
-                }
-            }
-        }
+        List<String> childIds = (List<String>) parentDoc.get("childOrderIds");
 
         WriteBatch batch = firestore.batch();
 
-        if (!childIds.isEmpty()) {
+        if (childIds != null) {
             for (String childId : childIds) {
                 batch.delete(firestore.collection("orders").document(childId));
             }
@@ -481,7 +493,7 @@ public class OrderService {
         List<String> productIds = childOrders.stream()
                 .flatMap(child -> {
                     try {
-                        List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
+                        List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<List<Map<String, Object>>>() {});
                         return items.stream().map(item -> (String) item.get("id"));
                     } catch (IOException e) {
                         System.err.println("Failed to parse items from child order: " + child.getId());
@@ -614,13 +626,16 @@ public class OrderService {
     }
 
     public List<Order> getOrdersForExport(int month, int year) throws ExecutionException, InterruptedException, IOException {
-        // Usa LocalDate per gestire le date in modo più moderno
-        LocalDate startDate = LocalDate.of(year, month, 1);
-        LocalDate endDate = startDate.plusMonths(1);
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        cal.set(year, month - 1, 1, 0, 0, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date startDate = cal.getTime();
 
-        // Converti in Timestamp (assumendo UTC per coerenza con Firestore)
-        Timestamp startTimestamp = Timestamp.of(java.util.Date.from(startDate.atStartOfDay(ZoneId.of("UTC")).toInstant()));
-        Timestamp endTimestamp = Timestamp.of(java.util.Date.from(endDate.atStartOfDay(ZoneId.of("UTC")).toInstant()));
+        cal.add(Calendar.MONTH, 1);
+        Date endDate = cal.getTime();
+
+        Timestamp startTimestamp = Timestamp.of(startDate);
+        Timestamp endTimestamp = Timestamp.of(endDate);
 
         List<Order> parentOrders = firestore.collection("orders")
                 .whereEqualTo("type", "PARENT")
