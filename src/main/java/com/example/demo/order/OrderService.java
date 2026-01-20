@@ -12,11 +12,14 @@ import com.example.demo.settings.SettingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -42,30 +45,6 @@ public class OrderService {
         this.productService = productService;
         this.settingService = settingService;
         this.couponService = couponService;
-    }
-
-    public boolean hasOrdersInPeriod(int month, int year) throws ExecutionException, InterruptedException {
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-        cal.set(year, month - 1, 1, 0, 0, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        Date startDate = cal.getTime();
-
-        cal.add(Calendar.MONTH, 1);
-        Date endDate = cal.getTime();
-
-        Timestamp startTimestamp = Timestamp.of(startDate);
-        Timestamp endTimestamp = Timestamp.of(endDate);
-
-        Query query = firestore.collection("orders")
-                .whereEqualTo("type", "PARENT")
-                .whereGreaterThanOrEqualTo("createdAt", startTimestamp)
-                .whereLessThan("createdAt", endTimestamp)
-                .limit(1);
-
-        ApiFuture<QuerySnapshot> future = query.get();
-        QuerySnapshot snapshot = future.get();
-
-        return !snapshot.isEmpty();
     }
 
     public List<Order> searchOrders(String type, String value) throws ExecutionException, InterruptedException {
@@ -108,12 +87,12 @@ public class OrderService {
                 }
                 break;
             case "email":
-                firestore.collection("orders")
+                List<Order> ordersByEmail = firestore.collection("orders")
                     .whereEqualTo("type", "PARENT")
                     .whereEqualTo("email_lowercase", searchValue)
                     .get().get()
-                    .toObjects(Order.class)
-                    .forEach(foundOrders::add);
+                    .toObjects(Order.class);
+                foundOrders.addAll(ordersByEmail);
                 break;
             case "name":
                 Query query = firestore.collection("orders").whereEqualTo("type", "PARENT");
@@ -123,7 +102,8 @@ public class OrderService {
                         query = query.whereArrayContains("searchKeywords", keyword);
                     }
                 }
-                 query.get().get().toObjects(Order.class).forEach(foundOrders::add);
+                 List<Order> ordersByName = query.get().get().toObjects(Order.class);
+                 foundOrders.addAll(ordersByName);
                 break;
             default:
                 // Type not supported
@@ -147,11 +127,14 @@ public class OrderService {
             }
             Product product = productDoc.toObject(Product.class);
 
-            double priceToUse = (product.getDiscountPrice() != null && product.getDiscountPrice() > 0)
-                ? product.getDiscountPrice()
-                : product.getPrice();
+            if (product != null) {
+                Double discountPrice = product.getDiscountPrice();
+                double priceToUse = (discountPrice != null && discountPrice > 0)
+                    ? discountPrice
+                    : product.getPrice();
 
-            merchandiseTotal = merchandiseTotal.add(BigDecimal.valueOf(priceToUse).multiply(BigDecimal.valueOf(quantity)));
+                merchandiseTotal = merchandiseTotal.add(BigDecimal.valueOf(priceToUse).multiply(BigDecimal.valueOf(quantity)));
+            }
         }
 
         BigDecimal discountAmount = BigDecimal.ZERO;
@@ -160,7 +143,7 @@ public class OrderService {
             if (couponOpt.isPresent()) {
                 Coupon coupon = couponOpt.get();
                 if (coupon.getDiscountType() == DiscountType.PERCENTAGE) {
-                    BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"));
+                    BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
                     discountAmount = merchandiseTotal.multiply(percentage);
                 } else { // FIXED_AMOUNT
                     discountAmount = coupon.getDiscountValue();
@@ -203,8 +186,22 @@ public class OrderService {
             DocumentSnapshot productDoc = firestore.collection("products").document(productId).get().get();
             if (productDoc.exists()) {
                 item.put("price", productDoc.getDouble("price"));
-                String preSaleDate = productDoc.getString("preSaleDate");
-                if (preSaleDate != null && !preSaleDate.isEmpty()) {
+                String preSaleDateStr = productDoc.getString("preSaleDate");
+                
+                boolean isPreOrder = false;
+                if (preSaleDateStr != null && !preSaleDateStr.isEmpty()) {
+                    try {
+                        // Assumiamo che la data sia nel formato YYYY-MM-DD
+                        LocalDate preSaleDate = LocalDate.parse(preSaleDateStr); 
+                        if (preSaleDate.isAfter(LocalDate.now())) {
+                            isPreOrder = true;
+                        }
+                    } catch (DateTimeParseException e) {
+                        System.err.println("Data pre-ordine non valida per il prodotto " + productId + ": " + preSaleDateStr);
+                    }
+                }
+
+                if (isPreOrder) {
                     preOrderItems.add(item);
                 } else {
                     regularItems.add(item);
@@ -233,7 +230,9 @@ public class OrderService {
         } else {
             String childId = "child_" + UUID.randomUUID().toString();
             childOrderIds.add(childId);
-            int status = preOrderItems.isEmpty() ? 0 : 3;
+            // Se ci sono articoli in pre-ordine (e non abbiamo splittato), l'intero ordine è in pre-ordine (stato 3).
+            // Altrimenti è in preparazione (stato 0).
+            int status = !preOrderItems.isEmpty() ? 3 : 0;
             createChildOrder(batch, parentOrder.getId(), childId, allItems, status);
         }
 
@@ -331,13 +330,11 @@ public class OrderService {
         batch.set(childRef, child);
     }
 
-    public List<Order> getParentOrders(Integer status) throws ExecutionException, InterruptedException {
+    public List<Order> getParentOrders() throws ExecutionException, InterruptedException {
         Query query = firestore.collection("orders").whereEqualTo("type", "PARENT");
 
-        if (status != null) {
-            // Filter logic might be inaccurate as parent status is generic.
-            // For precise filtering, one should query the children's status.
-        }
+        // Nota: Il filtro per status qui è stato rimosso perché 'status' su PARENT è generico.
+        // Se necessario, implementare una logica di filtro più complessa basata sui figli.
 
         List<Order> orders = query.get().get().toObjects(Order.class);
 
@@ -440,11 +437,20 @@ public class OrderService {
             throw new RuntimeException("Parent order not found with ID: " + parentId);
         }
 
-        List<String> childIds = (List<String>) parentDoc.get("childOrderIds");
+        // Fix: Unchecked cast warning
+        Object childIdsObj = parentDoc.get("childOrderIds");
+        List<String> childIds = new ArrayList<>();
+        if (childIdsObj instanceof List<?>) {
+            for (Object item : (List<?>) childIdsObj) {
+                if (item instanceof String) {
+                    childIds.add((String) item);
+                }
+            }
+        }
 
         WriteBatch batch = firestore.batch();
 
-        if (childIds != null) {
+        if (!childIds.isEmpty()) {
             for (String childId : childIds) {
                 batch.delete(firestore.collection("orders").document(childId));
             }
@@ -475,7 +481,7 @@ public class OrderService {
         List<String> productIds = childOrders.stream()
                 .flatMap(child -> {
                     try {
-                        List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<List<Map<String, Object>>>() {});
+                        List<Map<String, Object>> items = objectMapper.readValue(child.getItems(), new TypeReference<>() {});
                         return items.stream().map(item -> (String) item.get("id"));
                     } catch (IOException e) {
                         System.err.println("Failed to parse items from child order: " + child.getId());
@@ -608,16 +614,13 @@ public class OrderService {
     }
 
     public List<Order> getOrdersForExport(int month, int year) throws ExecutionException, InterruptedException, IOException {
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-        cal.set(year, month - 1, 1, 0, 0, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        Date startDate = cal.getTime();
+        // Usa LocalDate per gestire le date in modo più moderno
+        LocalDate startDate = LocalDate.of(year, month, 1);
+        LocalDate endDate = startDate.plusMonths(1);
 
-        cal.add(Calendar.MONTH, 1);
-        Date endDate = cal.getTime();
-
-        Timestamp startTimestamp = Timestamp.of(startDate);
-        Timestamp endTimestamp = Timestamp.of(endDate);
+        // Converti in Timestamp (assumendo UTC per coerenza con Firestore)
+        Timestamp startTimestamp = Timestamp.of(java.util.Date.from(startDate.atStartOfDay(ZoneId.of("UTC")).toInstant()));
+        Timestamp endTimestamp = Timestamp.of(java.util.Date.from(endDate.atStartOfDay(ZoneId.of("UTC")).toInstant()));
 
         List<Order> parentOrders = firestore.collection("orders")
                 .whereEqualTo("type", "PARENT")
