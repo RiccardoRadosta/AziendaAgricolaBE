@@ -26,6 +26,7 @@ public class ArticleController {
             List<Article> articles = articleService.getPublishedArticles();
             return ResponseEntity.ok(articles);
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace(); // Stampa l'errore in console per debug
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -40,6 +41,7 @@ public class ArticleController {
                 return ResponseEntity.notFound().build();
             }
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -52,6 +54,7 @@ public class ArticleController {
             List<Article> articles = articleService.getAllArticlesForAdmin();
             return ResponseEntity.ok(articles);
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -66,6 +69,7 @@ public class ArticleController {
                 return ResponseEntity.notFound().build();
             }
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -76,6 +80,7 @@ public class ArticleController {
             String articleId = articleService.createArticle(articleDTO);
             return new ResponseEntity<>(Map.of("id", articleId, "message", "Article created successfully"), HttpStatus.CREATED);
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error creating article: " + e.getMessage());
         }
     }
@@ -88,6 +93,7 @@ public class ArticleController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error updating article: " + e.getMessage());
         }
     }
@@ -98,6 +104,7 @@ public class ArticleController {
             articleService.deleteArticle(id);
             return ResponseEntity.ok(Map.of("message", "Article deleted successfully"));
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error deleting article: " + e.getMessage());
         }
     }

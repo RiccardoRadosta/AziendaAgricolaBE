@@ -22,18 +22,30 @@ public class ArticleService {
         this.articlesCollection = firestore.collection("articles");
     }
 
-    // Pubblico: Solo articoli pubblicati, ordinati per data di pubblicazione decrescente
+    // Pubblico: Solo articoli pubblicati, ordinati per data di pubblicazione decrescente (ordinamento in memoria)
     public List<Article> getPublishedArticles() throws ExecutionException, InterruptedException {
-        Query query = articlesCollection
-                .whereEqualTo("status", "PUBLISHED")
-                .orderBy("publishedAt", Query.Direction.DESCENDING);
+        // Query semplice senza ordinamento per evitare la necessità di un indice composito
+        Query query = articlesCollection.whereEqualTo("status", "PUBLISHED");
 
-        return query.get().get().toObjects(Article.class);
+        List<Article> articles = query.get().get().toObjects(Article.class);
+
+        // Ordinamento in memoria
+        return articles.stream()
+                .sorted(Comparator.comparing(Article::getPublishedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
     }
 
-    // Admin: Tutti gli articoli
+    // Admin: Tutti gli articoli (ordinamento in memoria per evitare indici se necessario, o manteniamo query semplice)
     public List<Article> getAllArticlesForAdmin() throws ExecutionException, InterruptedException {
-        return articlesCollection.orderBy("createdAt", Query.Direction.DESCENDING).get().get().toObjects(Article.class);
+        // Recupera tutti gli articoli senza ordinamento specifico lato DB se vogliamo evitare indici, 
+        // ma per createdAt di solito l'indice automatico basta se non ci sono filtri where.
+        // Se articlesCollection.orderBy("createdAt") fallisce, possiamo fare come sopra.
+        // Per sicurezza, facciamo ordinamento in memoria anche qui.
+        List<Article> articles = articlesCollection.get().get().toObjects(Article.class);
+        
+        return articles.stream()
+                .sorted(Comparator.comparing(Article::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
     }
 
     public Article getArticleBySlug(String slug) throws ExecutionException, InterruptedException {
