@@ -303,6 +303,17 @@ public class AdminController {
         }
     }
 
+    @PostMapping("/newsletter/send-test")
+    public ResponseEntity<?> sendTestNewsletter(@RequestBody NewsletterRequestDTO newsletterRequest) {
+        try {
+            newsletterService.sendTestNewsletter(newsletterRequest.getSubject(), newsletterRequest.getMessage());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Test Newsletter inviata con successo."));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", "Errore durante l'invio della test newsletter."));
+        }
+    }
+
     @GetMapping("/dashboard-stats")
     public ResponseEntity<DashboardStatsDTO> getDashboardStats() {
         try {

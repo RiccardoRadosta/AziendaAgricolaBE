@@ -8,6 +8,7 @@ import com.google.cloud.firestore.QuerySnapshot;
 import com.google.cloud.firestore.WriteBatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
@@ -21,6 +22,9 @@ public class NewsletterService {
     private final Firestore firestore;
     private final BrevoEmailService emailService;
     private static final Logger logger = LoggerFactory.getLogger(NewsletterService.class);
+
+    @Value("${brevo.sender.email}")
+    private String senderEmail;
 
     public NewsletterService(Firestore firestore, BrevoEmailService emailService) {
         this.firestore = firestore;
@@ -127,5 +131,15 @@ public class NewsletterService {
             }
         }
         logger.info("Newsletter send job finished.");
+    }
+
+    public void sendTestNewsletter(String subject, String message) {
+        logger.info("Sending test newsletter to sender: {}", senderEmail);
+        try {
+            emailService.sendEmail(senderEmail, "[TEST] " + subject, message);
+            logger.info("Successfully sent test newsletter to: {}", senderEmail);
+        } catch (Exception e) {
+            logger.error("Failed to send test newsletter to: {}. Error: {}", senderEmail, e.getMessage());
+        }
     }
 }
