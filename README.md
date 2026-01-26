@@ -48,6 +48,7 @@ Quando un amministratore aggiorna lo stato di una spedizione a "Spedito" e inser
 - **Invio Automatico**: Il sistema invia automaticamente un'email al cliente per notificargli che la spedizione è partita.
 - **Chiarezza per il Cliente**: L'email si concentra esclusivamente sulla spedizione specifica (ordine "figlio"), mostrando l'**ID della spedizione** e il **numero di tracciamento**.
 - **Contenuto Essenziale**: Include la lista degli articoli presenti in quella specifica spedizione, evitando confusione nel caso di ordini suddivisi.
+- **Dettagli Corriere**: L'email include il nome del corriere e un link diretto per il tracciamento del pacco, configurabili tramite le impostazioni di sistema.
 
 #### Invio Fatture
 L'amministratore può inviare manualmente la fattura relativa a un ordine specifico tramite il pannello di amministrazione.
@@ -63,8 +64,14 @@ L'amministratore può inviare manualmente la fattura relativa a un ordine specif
 
 ### 6. Impostazioni di Sistema
 
-- **Configurazione Dinamica**: API per gestire le impostazioni chiave (es. costi di spedizione).
+- **Configurazione Dinamica**: API per gestire le impostazioni chiave (es. costi di spedizione, dettagli corriere).
 - **Endpoint Pubblico e Privato**: Un endpoint pubblico per la lettura e uno protetto per la modifica.
+- **Campi Aggiuntivi**:
+    - `freeShippingThreshold_UE`: Soglia di spedizione gratuita per l'Unione Europea.
+    - `splitShippingCost_UE`: Costo aggiuntivo per spedizione divisa in UE.
+    - `standardShippingCost_UE`: Costo di spedizione standard per l'Unione Europea.
+    - `NomeCorriere`: Nome del corriere predefinito.
+    - `LinkTrackingPage`: URL base per il tracciamento delle spedizioni.
 
 ### 7. Gestione della Newsletter
 
@@ -117,6 +124,27 @@ Il file Excel generato contiene tre fogli di lavoro, ciascuno progettato per off
     - **Dettagli Articolo**: Per ogni articolo vengono mostrati:
         - **Prezzo Originale**: Il prezzo di listino (`price`).
         - **Prezzo Finale**: Il prezzo effettivo pagato dal cliente. **Questo valore viene letto dal campo `discountPrice` se presente; in caso contrario, corrisponde al prezzo originale.** Questa logica assicura una contabilità precisa anche in presenza di promozioni specifiche sul prodotto.
+
+### 10. Gestione Blog/Vlog
+
+Il sistema include una funzionalità completa di Blog/Vlog per la pubblicazione di articoli e contenuti editoriali.
+
+- **CRUD Completo**: API per creare, leggere, aggiornare ed eliminare articoli.
+- **Struttura Articolo**:
+    - `title`: Titolo dell'articolo.
+    - `slug`: URL-friendly identifier (generato automaticamente).
+    - `content`: Contenuto HTML/Rich Text.
+    - `imageUrls`: Lista di immagini associate.
+    - `relatedProductIds`: Lista di ID prodotti correlati per il cross-selling.
+    - `status`: "DRAFT" (Bozza) o "PUBLISHED" (Pubblicato).
+- **Endpoint Pubblici**:
+    - `GET /api/blog`: Restituisce la lista degli articoli pubblicati, ordinati per data.
+    - `GET /api/blog/{slug}`: Restituisce il dettaglio di un singolo articolo.
+- **Endpoint Admin**:
+    - `GET /api/admin/blog`: Lista completa (incluse bozze).
+    - `POST /api/admin/blog`: Creazione articolo.
+    - `PUT /api/admin/blog/{id}`: Modifica articolo.
+    - `DELETE /api/admin/blog/{id}`: Eliminazione articolo.
 
 ## Chiamate alle API
 

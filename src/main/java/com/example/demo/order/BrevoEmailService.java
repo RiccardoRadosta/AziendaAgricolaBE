@@ -1,5 +1,7 @@
 package com.example.demo.order;
 
+import com.example.demo.settings.Setting;
+import com.example.demo.settings.SettingService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -10,6 +12,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -29,6 +32,7 @@ public class BrevoEmailService {
   private final RestTemplate restTemplate;
   private final ObjectMapper objectMapper;
   private final TemplateEngine templateEngine;
+  private final SettingService settingService;
 
   @Value("${brevo.api.key}")
   private String apiKey;
@@ -45,11 +49,13 @@ public class BrevoEmailService {
   public BrevoEmailService(
     RestTemplate restTemplate,
     ObjectMapper objectMapper,
-    TemplateEngine templateEngine
+    TemplateEngine templateEngine,
+    SettingService settingService
   ) {
     this.restTemplate = restTemplate;
     this.objectMapper = objectMapper;
     this.templateEngine = templateEngine;
+    this.settingService = settingService;
   }
 
   public void sendInvoiceEmail(String toEmail, String orderId, MultipartFile attachment) {
@@ -70,35 +76,45 @@ public class BrevoEmailService {
     Order parentOrder,
     Order shipment
   ) {
-    final Context ctx = new Context();
-
-    ctx.setVariable("customerName", parentOrder.getFullName());
-    ctx.setVariable("shipmentId", shipment.getId()); // ID della spedizione figlio
-    ctx.setVariable("currentYear", Year.now().getValue());
-    ctx.setVariable("termsUrl", frontendUrl + "/terms");
-
-
-    Map<String, Object> shipmentForTemplate = new HashMap<>();
-    shipmentForTemplate.put("trackingNumber", shipment.getTrackingNumber());
     try {
-      List<Map<String, Object>> items = objectMapper.readValue(
-        shipment.getItems(),
-        new TypeReference<>() {}
-      );
-      shipmentForTemplate.put("items", items);
-    } catch (IOException e) {
-      shipmentForTemplate.put("items", Collections.emptyList()); // Gestione errore
+      Setting settings = settingService.getSettings();
+      final Context ctx = new Context();
+
+      ctx.setVariable("customerName", parentOrder.getFullName());
+      ctx.setVariable("shipmentId", shipment.getId()); // ID della spedizione figlio
+      ctx.setVariable("currentYear", Year.now().getValue());
+      ctx.setVariable("termsUrl", frontendUrl + "/terms");
+      
+      // Aggiunta impostazioni corriere
+      ctx.setVariable("courierName", settings.getNomeCorriere());
+      ctx.setVariable("trackingLink", settings.getLinkTrackingPage());
+
+      Map<String, Object> shipmentForTemplate = new HashMap<>();
+      shipmentForTemplate.put("trackingNumber", shipment.getTrackingNumber());
+      try {
+        List<Map<String, Object>> items = objectMapper.readValue(
+          shipment.getItems(),
+          new TypeReference<>() {}
+        );
+        shipmentForTemplate.put("items", items);
+      } catch (IOException e) {
+        shipmentForTemplate.put("items", Collections.emptyList()); // Gestione errore
+      }
+      ctx.setVariable("shipment", shipmentForTemplate);
+
+      final String htmlContent = this.templateEngine.process(
+          "email/shipped-order-template",
+          ctx
+        );
+
+      // Oggetto email modificato per usare solo l'ID spedizione
+      String subject = "La tua spedizione #" + shipment.getId() + " è in viaggio!";
+      sendEmail(parentOrder.getEmail(), subject, htmlContent);
+
+    } catch (ExecutionException | InterruptedException e) {
+        System.err.println("Errore durante il recupero delle impostazioni per l'invio dell'email di spedizione: " + e.getMessage());
+        Thread.currentThread().interrupt();
     }
-    ctx.setVariable("shipment", shipmentForTemplate);
-
-    final String htmlContent = this.templateEngine.process(
-        "email/shipped-order-template",
-        ctx
-      );
-
-    // Oggetto email modificato per usare solo l'ID spedizione
-    String subject = "La tua spedizione #" + shipment.getId() + " è in viaggio!";
-    sendEmail(parentOrder.getEmail(), subject, htmlContent);
   }
 
   public void sendOrderConfirmationEmail(

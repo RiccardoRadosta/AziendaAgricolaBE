@@ -164,6 +164,23 @@ public class AdminController {
             if (updates.containsKey("splitShippingCost")) {
                 currentSettings.setSplitShippingCost(new BigDecimal(updates.get("splitShippingCost").toString()));
             }
+            // Nuovi campi UE
+            if (updates.containsKey("standardShippingCost_UE")) {
+                currentSettings.setStandardShippingCost_UE(new BigDecimal(updates.get("standardShippingCost_UE").toString()));
+            }
+            if (updates.containsKey("freeShippingThreshold_UE")) {
+                currentSettings.setFreeShippingThreshold_UE(new BigDecimal(updates.get("freeShippingThreshold_UE").toString()));
+            }
+            if (updates.containsKey("splitShippingCost_UE")) {
+                currentSettings.setSplitShippingCost_UE(new BigDecimal(updates.get("splitShippingCost_UE").toString()));
+            }
+            // Nuovi campi Corriere
+            if (updates.containsKey("NomeCorriere")) {
+                currentSettings.setNomeCorriere((String) updates.get("NomeCorriere"));
+            }
+            if (updates.containsKey("LinkTrackingPage")) {
+                currentSettings.setLinkTrackingPage((String) updates.get("LinkTrackingPage"));
+            }
 
             settingService.saveSettings(currentSettings);
             return ResponseEntity.ok(Map.of("success", true, "message", "Settings updated successfully."));

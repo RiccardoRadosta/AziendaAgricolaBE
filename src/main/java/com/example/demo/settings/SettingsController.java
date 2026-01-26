@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -26,16 +27,22 @@ public class SettingsController {
         try {
             Setting settings = settingService.getSettings();
 
-            // Applica i valori di default se quelli correnti sono null
-            BigDecimal standardShippingCost = Optional.ofNullable(settings.getStandardShippingCost()).orElse(new BigDecimal("30"));
-            BigDecimal freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO);
-            BigDecimal splitShippingCost = Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO);
+            Map<String, Object> publicSettings = new HashMap<>();
 
-            Map<String, Object> publicSettings = Map.of(
-                "standardShippingCost", standardShippingCost,
-                "freeShippingThreshold", freeShippingThreshold,
-                "splitShippingCost", splitShippingCost
-            );
+            // Impostazioni Italia
+            publicSettings.put("standardShippingCost", Optional.ofNullable(settings.getStandardShippingCost()).orElse(new BigDecimal("10")));
+            publicSettings.put("freeShippingThreshold", Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO));
+            publicSettings.put("splitShippingCost", Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO));
+
+            // Impostazioni UE
+            publicSettings.put("standardShippingCost_UE", Optional.ofNullable(settings.getStandardShippingCost_UE()).orElse(BigDecimal.ZERO));
+            publicSettings.put("freeShippingThreshold_UE", Optional.ofNullable(settings.getFreeShippingThreshold_UE()).orElse(BigDecimal.ZERO));
+            publicSettings.put("splitShippingCost_UE", Optional.ofNullable(settings.getSplitShippingCost_UE()).orElse(BigDecimal.ZERO));
+
+            // Impostazioni Corriere
+            publicSettings.put("NomeCorriere", Optional.ofNullable(settings.getNomeCorriere()).orElse(""));
+            publicSettings.put("LinkTrackingPage", Optional.ofNullable(settings.getLinkTrackingPage()).orElse(""));
+
             return ResponseEntity.ok(publicSettings);
         } catch (ExecutionException | InterruptedException e) {
             Thread.currentThread().interrupt();

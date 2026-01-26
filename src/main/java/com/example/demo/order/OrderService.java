@@ -17,6 +17,7 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -24,9 +25,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 @Service
 public class OrderService {
+
+    private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
 
     private final Firestore firestore;
     private final ObjectMapper objectMapper;
@@ -36,6 +42,10 @@ public class OrderService {
     private final CouponService couponService;
 
     private static final String STATUS_CONSEGNATO = "2";
+    private static final Set<String> EU_COUNTRY_CODES = Set.of(
+        "AT", "BE", "BG", "CY", "HR", "DK", "EE", "FI", "FR", "DE", "GR", "IE", 
+        "LV", "LT", "LU", "MT", "NL", "PL", "PT", "CZ", "RO", "SK", "SI", "ES", "SE", "HU"
+    );
 
     public OrderService(Firestore firestore, BrevoEmailService brevoEmailService, ProductService productService, SettingService settingService, CouponService couponService) {
         this.firestore = firestore;
@@ -162,7 +172,7 @@ public class OrderService {
             if (couponOpt.isPresent()) {
                 Coupon coupon = couponOpt.get();
                 if (coupon.getDiscountType() == DiscountType.PERCENTAGE) {
-                    BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"));
+                    BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
                     discountAmount = merchandiseTotal.multiply(percentage);
                 } else { // FIXED_AMOUNT
                     discountAmount = coupon.getDiscountValue();
@@ -178,18 +188,52 @@ public class OrderService {
 
         Setting settings = settingService.getSettings();
         BigDecimal shippingCost = BigDecimal.ZERO;
+        String country = orderDTO.getCountry();
+        String normalizedCountry = (country != null) ? country.trim().toUpperCase() : "";
 
-        BigDecimal freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO);
+        BigDecimal freeShippingThreshold;
+        BigDecimal standardShippingCost;
+        BigDecimal splitShippingCost;
 
-        if (freeShippingThreshold.compareTo(BigDecimal.ZERO) <= 0 || merchandiseAfterDiscount.compareTo(freeShippingThreshold) < 0) {
-            shippingCost = Optional.ofNullable(settings.getStandardShippingCost()).orElse(BigDecimal.ZERO);
-            if ("split".equalsIgnoreCase(orderDTO.getShipmentPreference())) {
-                 BigDecimal splitCost = Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO);
-                 shippingCost = shippingCost.add(splitCost);
-            }
+        logger.info("Calcolo spedizione per paese: '{}'", normalizedCountry);
+        logger.info("Impostazioni lette dal DB: standardShippingCost={}, freeShippingThreshold={}, splitShippingCost={}", 
+                     settings.getStandardShippingCost(), settings.getFreeShippingThreshold(), settings.getSplitShippingCost());
+        logger.info("Impostazioni lette dal DB (UE): standardShippingCost_UE={}, freeShippingThreshold_UE={}, splitShippingCost_UE={}", 
+                     settings.getStandardShippingCost_UE(), settings.getFreeShippingThreshold_UE(), settings.getSplitShippingCost_UE());
+
+
+        if ("IT".equalsIgnoreCase(normalizedCountry)) {
+            logger.info("Paese '{}' rilevato come Italia. Applico costi standard.", normalizedCountry);
+            freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO);
+            standardShippingCost = Optional.ofNullable(settings.getStandardShippingCost()).orElse(BigDecimal.ZERO);
+            splitShippingCost = Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO);
+        } else if (EU_COUNTRY_CODES.contains(normalizedCountry)) {
+            logger.info("Paese '{}' rilevato come UE (non Italia). Applico costi UE.", normalizedCountry);
+            freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold_UE()).orElse(BigDecimal.ZERO);
+            standardShippingCost = Optional.ofNullable(settings.getStandardShippingCost_UE()).orElse(BigDecimal.ZERO);
+            splitShippingCost = Optional.ofNullable(settings.getSplitShippingCost_UE()).orElse(BigDecimal.ZERO);
+        } else {
+            logger.info("Paese '{}' rilevato come Extra-UE. Applico costi standard (come Italia).", normalizedCountry);
+            freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO);
+            standardShippingCost = Optional.ofNullable(settings.getStandardShippingCost()).orElse(BigDecimal.ZERO);
+            splitShippingCost = Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO);
         }
 
+        logger.info("Costi selezionati: standardShippingCost={}, freeShippingThreshold={}, splitShippingCost={}", 
+                     standardShippingCost, freeShippingThreshold, splitShippingCost);
+
+
+        if (freeShippingThreshold.compareTo(BigDecimal.ZERO) <= 0 || merchandiseAfterDiscount.compareTo(freeShippingThreshold) < 0) {
+            shippingCost = standardShippingCost;
+            if ("split".equalsIgnoreCase(orderDTO.getShipmentPreference())) {
+                 shippingCost = shippingCost.add(splitShippingCost);
+            }
+        }
+        logger.info("Costo spedizione finale prima del totale: {}", shippingCost);
+
+
         BigDecimal finalTotal = merchandiseAfterDiscount.add(shippingCost);
+        logger.info("Totale finale calcolato dal BE: {}", finalTotal);
         
         return finalTotal.doubleValue();
     }
