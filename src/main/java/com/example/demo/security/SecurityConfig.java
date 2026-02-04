@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/orders/create").permitAll()
                 .requestMatchers("/api/newsletter/subscribe").permitAll()
                 .requestMatchers("/api/admin/login").permitAll()
+                .requestMatchers("/api/paypal/**").permitAll() // <-- AGGIORNATO
 
                 // Endpoints Protetti (l'autenticazione viene verificata prima di arrivare a permitAll)
                 .requestMatchers(HttpMethod.POST, "/api/products").authenticated()
@@ -38,12 +39,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders/**").authenticated()
-                .requestMatchers(HttpMethod.PUT, "/api/orders/**").authenticated() // <-- UNICA AGGIUNTA FUNZIONALE
+                .requestMatchers(HttpMethod.PUT, "/api/orders/**").authenticated() 
                 .requestMatchers(HttpMethod.PUT, "/api/shipments/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/orders/**").authenticated()
                 
                 // Permetti qualsiasi altra richiesta (es. coupon, settings pubblici, ecc.)
-                .anyRequest().permitAll() // <-- MODIFICA CHIAVE
+                .anyRequest().permitAll()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
