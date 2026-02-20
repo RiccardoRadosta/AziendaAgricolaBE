@@ -35,6 +35,7 @@ Per garantire la massima sicurezza e prevenire discrepanze, il sistema adotta un
 
 - **CRUD Completo**: API per creare, leggere, aggiornare ed eliminare i prodotti del catalogo.
 - **Sicurezza a livello di endpoint**: Le operazioni di modifica sono protette, mentre la lettura dei prodotti è pubblica.
+- **Gestione IVA**: Ogni prodotto include un campo `vatRate` (aliquota IVA) configurabile dall'amministratore.
 
 ### 4. Comunicazioni via Email (Brevo)
 
@@ -61,6 +62,7 @@ L'amministratore può inviare manualmente la fattura relativa a un ordine specif
 - **Struttura Padre-Figlio**: Un acquisto genera un ordine **"padre"** (dati anagrafici e finanziari) e uno o più ordini **"figlio"** (le singole spedizioni).
 - **Separazione Spedizioni**: La logica separa automaticamente gli articoli in pre-ordine da quelli disponibili, creando spedizioni multiple se richiesto.
 - **Integrazione con Stripe**: Utilizza Stripe per elaborare i pagamenti a livello di ordine "padre".
+- **Tracciamento Metodo di Pagamento**: Ogni ordine salva il metodo di pagamento utilizzato (`card`, `paypal`, ecc.) nel campo `paymentMethod`.
 
 ### 6. Impostazioni di Sistema
 

@@ -56,11 +56,12 @@ public class Order {
     private Double shippingCost;
     private Double discount;
     private String couponCode;
+    private String paymentMethod; // NUOVO CAMPO
 
     // -- Dati della Spedizione (solo per CHILD) --
     private String items; // JSON degli articoli in questa spedizione
     private Double originalSubtotal; // Valore dei soli articoli in questa spedizione
-    private String trackingNumber; // NUOVO CAMPO
+    private String trackingNumber;
 
     // -- Dati Comuni --
     private String status;

@@ -22,4 +22,5 @@ public class Product {
     private String ingredients;
     private String origin;
     private String nutrition;
+    private Integer vatRate = 22; // Default 22%
 }

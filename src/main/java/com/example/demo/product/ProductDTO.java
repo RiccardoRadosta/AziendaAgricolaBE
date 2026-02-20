@@ -22,4 +22,5 @@ public class ProductDTO {
     private String ingredients;
     private String origin;
     private String nutrition;
+    private Integer vatRate;
 }

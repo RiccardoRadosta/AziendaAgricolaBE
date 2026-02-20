@@ -361,6 +361,7 @@ public class OrderService {
         parent.setShippingCost(dto.getShippingCost());
         parent.setDiscount(dto.getDiscount());
         parent.setCouponCode(dto.getCouponCode());
+        parent.setPaymentMethod(dto.getPaymentMethod() != null ? dto.getPaymentMethod() : "card");
 
         parent.setShipmentPreference(dto.getShipmentPreference());
         parent.setStatus("PROCESSING");

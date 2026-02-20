@@ -58,6 +58,11 @@ public class ProductService {
         product.setIngredients(productDTO.getIngredients());
         product.setOrigin(productDTO.getOrigin());
         product.setNutrition(productDTO.getNutrition());
+        
+        // Se vatRate è null, usa il default 22 (gestito nella classe Product, ma qui lo settiamo esplicitamente se presente)
+        if (productDTO.getVatRate() != null) {
+            product.setVatRate(productDTO.getVatRate());
+        }
 
         ApiFuture<DocumentReference> future = productsCollection.add(product);
         return future.get().getId();
@@ -80,6 +85,10 @@ public class ProductService {
         updates.put("ingredients", productDTO.getIngredients());
         updates.put("origin", productDTO.getOrigin());
         updates.put("nutrition", productDTO.getNutrition());
+        
+        if (productDTO.getVatRate() != null) {
+            updates.put("vatRate", productDTO.getVatRate());
+        }
 
         docRef.update(updates).get();
     }
