@@ -787,6 +787,7 @@ public class OrderService {
                     Product product = productsMap.get((String) item.get("id"));
                     if (product != null) {
                         item.put("name", product.getName());
+                        item.put("vatRate", product.getVatRate()); // AGGIUNTO
                     }
                 }
                 child.setItems(objectMapper.writeValueAsString(items));
