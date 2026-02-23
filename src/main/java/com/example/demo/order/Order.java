@@ -56,7 +56,11 @@ public class Order {
     private Double shippingCost;
     private Double discount;
     private String couponCode;
-    private String paymentMethod; // NUOVO CAMPO
+    private String paymentMethod;
+    
+    // Nuovi campi per tracciamento fee
+    private Double paymentFee; // Commissione del gateway (es. PayPal fee)
+    private Double netRevenue; // Ricavo netto (subtotal - paymentFee)
 
     // -- Dati della Spedizione (solo per CHILD) --
     private String items; // JSON degli articoli in questa spedizione

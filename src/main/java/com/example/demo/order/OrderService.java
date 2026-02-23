@@ -5,16 +5,21 @@ import com.example.demo.coupon.CouponService;
 import com.example.demo.coupon.DiscountType;
 import com.example.demo.order.dto.OrderCustomerUpdateDTO;
 import com.example.demo.order.dto.ShipmentStatusUpdateDTO;
+import com.example.demo.paypal.PayPalService;
 import com.example.demo.product.Product;
 import com.example.demo.product.ProductService;
 import com.example.demo.settings.Setting;
 import com.example.demo.settings.SettingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
+import com.stripe.model.BalanceTransaction;
+import com.stripe.model.Charge;
+import com.stripe.model.PaymentIntent;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -40,6 +45,7 @@ public class OrderService {
     private final ProductService productService;
     private final SettingService settingService;
     private final CouponService couponService;
+    private final PayPalService payPalService;
 
     private static final String STATUS_CONSEGNATO = "2";
     private static final Set<String> EU_COUNTRY_CODES = Set.of(
@@ -47,13 +53,14 @@ public class OrderService {
         "LV", "LT", "LU", "MT", "NL", "PL", "PT", "CZ", "RO", "SK", "SI", "ES", "SE", "HU"
     );
 
-    public OrderService(Firestore firestore, BrevoEmailService brevoEmailService, ProductService productService, SettingService settingService, CouponService couponService) {
+    public OrderService(Firestore firestore, BrevoEmailService brevoEmailService, ProductService productService, SettingService settingService, CouponService couponService, PayPalService payPalService) {
         this.firestore = firestore;
         this.objectMapper = new ObjectMapper();
         this.brevoEmailService = brevoEmailService;
         this.productService = productService;
         this.settingService = settingService;
         this.couponService = couponService;
+        this.payPalService = payPalService;
     }
 
     public boolean hasOrdersInPeriod(int month, int year) throws ExecutionException, InterruptedException {
@@ -195,33 +202,19 @@ public class OrderService {
         BigDecimal standardShippingCost;
         BigDecimal splitShippingCost;
 
-        logger.info("Calcolo spedizione per paese: '{}'", normalizedCountry);
-        logger.info("Impostazioni lette dal DB: standardShippingCost={}, freeShippingThreshold={}, splitShippingCost={}", 
-                     settings.getStandardShippingCost(), settings.getFreeShippingThreshold(), settings.getSplitShippingCost());
-        logger.info("Impostazioni lette dal DB (UE): standardShippingCost_UE={}, freeShippingThreshold_UE={}, splitShippingCost_UE={}", 
-                     settings.getStandardShippingCost_UE(), settings.getFreeShippingThreshold_UE(), settings.getSplitShippingCost_UE());
-
-
         if ("IT".equalsIgnoreCase(normalizedCountry)) {
-            logger.info("Paese '{}' rilevato come Italia. Applico costi standard.", normalizedCountry);
             freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO);
             standardShippingCost = Optional.ofNullable(settings.getStandardShippingCost()).orElse(BigDecimal.ZERO);
             splitShippingCost = Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO);
         } else if (EU_COUNTRY_CODES.contains(normalizedCountry)) {
-            logger.info("Paese '{}' rilevato come UE (non Italia). Applico costi UE.", normalizedCountry);
             freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold_UE()).orElse(BigDecimal.ZERO);
             standardShippingCost = Optional.ofNullable(settings.getStandardShippingCost_UE()).orElse(BigDecimal.ZERO);
             splitShippingCost = Optional.ofNullable(settings.getSplitShippingCost_UE()).orElse(BigDecimal.ZERO);
         } else {
-            logger.info("Paese '{}' rilevato come Extra-UE. Applico costi standard (come Italia).", normalizedCountry);
             freeShippingThreshold = Optional.ofNullable(settings.getFreeShippingThreshold()).orElse(BigDecimal.ZERO);
             standardShippingCost = Optional.ofNullable(settings.getStandardShippingCost()).orElse(BigDecimal.ZERO);
             splitShippingCost = Optional.ofNullable(settings.getSplitShippingCost()).orElse(BigDecimal.ZERO);
         }
-
-        logger.info("Costi selezionati: standardShippingCost={}, freeShippingThreshold={}, splitShippingCost={}", 
-                     standardShippingCost, freeShippingThreshold, splitShippingCost);
-
 
         if (freeShippingThreshold.compareTo(BigDecimal.ZERO) <= 0 || merchandiseAfterDiscount.compareTo(freeShippingThreshold) < 0) {
             shippingCost = standardShippingCost;
@@ -229,16 +222,85 @@ public class OrderService {
                  shippingCost = shippingCost.add(splitShippingCost);
             }
         }
-        logger.info("Costo spedizione finale prima del totale: {}", shippingCost);
-
 
         BigDecimal finalTotal = merchandiseAfterDiscount.add(shippingCost);
-        logger.info("Totale finale calcolato dal BE: {}", finalTotal);
         
         return finalTotal.doubleValue();
     }
 
     public void createOrder(OrderDTO orderDTO) throws IOException, ExecutionException, InterruptedException {
+        // --- RECUPERO FEE STRIPE ---
+        if ("card".equals(orderDTO.getPaymentMethod()) && orderDTO.getPaymentToken() != null) {
+            try {
+                String paymentIntentId = orderDTO.getPaymentToken();
+                if (paymentIntentId.contains("_secret_")) {
+                    paymentIntentId = paymentIntentId.split("_secret_")[0];
+                }
+                
+                List<String> expandList = new ArrayList<>();
+                expandList.add("latest_charge.balance_transaction");
+
+                Map<String, Object> params = new HashMap<>();
+                params.put("expand", expandList);
+
+                PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentIntentId, params, null);
+                
+                // Estrazione Fee e Net
+                Charge latestCharge = (Charge) paymentIntent.getLatestChargeObject();
+                if (latestCharge != null) {
+                    BalanceTransaction balanceTransaction = latestCharge.getBalanceTransactionObject();
+                    if (balanceTransaction != null) {
+                        long feeCents = balanceTransaction.getFee();
+                        long netCents = balanceTransaction.getNet();
+                        
+                        double feeEuro = feeCents / 100.0;
+                        double netEuro = netCents / 100.0;
+                        
+                        // Imposta i valori nel DTO per essere salvati
+                        orderDTO.setPaymentFee(feeEuro);
+                        orderDTO.setNetRevenue(netEuro);
+                    }
+                }
+
+            } catch (Exception e) {
+                logger.error("Errore durante il recupero delle fee da Stripe: {}", e.getMessage());
+            }
+        }
+        // -------------------------------------
+
+        // --- RECUPERO FEE PAYPAL ---
+        if ("paypal".equals(orderDTO.getPaymentMethod()) && orderDTO.getPaymentToken() != null) {
+            try {
+                String orderId = orderDTO.getPaymentToken();
+
+                JsonNode orderDetails = payPalService.getOrderDetails(orderId);
+
+                // Naviga il JSON per trovare le fee
+                // Struttura tipica: purchase_units[0].payments.captures[0].seller_receivable_breakdown
+                JsonNode purchaseUnits = orderDetails.get("purchase_units");
+                if (purchaseUnits != null && purchaseUnits.isArray() && purchaseUnits.size() > 0) {
+                    JsonNode payments = purchaseUnits.get(0).get("payments");
+                    if (payments != null) {
+                        JsonNode captures = payments.get("captures");
+                        if (captures != null && captures.isArray() && captures.size() > 0) {
+                            JsonNode breakdown = captures.get(0).get("seller_receivable_breakdown");
+                            if (breakdown != null) {
+                                double fee = breakdown.get("paypal_fee").get("value").asDouble();
+                                double net = breakdown.get("net_amount").get("value").asDouble();
+
+                                orderDTO.setPaymentFee(fee);
+                                orderDTO.setNetRevenue(net);
+                            }
+                        }
+                    }
+                }
+
+            } catch (Exception e) {
+                logger.error("Errore durante il recupero delle fee da PayPal: {}", e.getMessage());
+            }
+        }
+        // -------------------------------------
+
         List<Map<String, Object>> allItems = objectMapper.readValue(orderDTO.getItems(), new TypeReference<>() {});
 
         List<Map<String, Object>> regularItems = new ArrayList<>();
@@ -362,6 +424,17 @@ public class OrderService {
         parent.setDiscount(dto.getDiscount());
         parent.setCouponCode(dto.getCouponCode());
         parent.setPaymentMethod(dto.getPaymentMethod() != null ? dto.getPaymentMethod() : "card");
+        
+        // Salvataggio Fee e Net Revenue
+        if (dto.getPaymentFee() != null) {
+            parent.setPaymentFee(dto.getPaymentFee());
+            if (dto.getNetRevenue() != null) {
+                parent.setNetRevenue(dto.getNetRevenue());
+            } else {
+                // Calcolo automatico se non fornito
+                parent.setNetRevenue(dto.getSubtotal() - dto.getPaymentFee());
+            }
+        }
 
         parent.setShipmentPreference(dto.getShipmentPreference());
         parent.setStatus("PROCESSING");

@@ -4,6 +4,8 @@ import com.example.demo.config.PayPalConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -16,6 +18,8 @@ import java.math.RoundingMode;
 
 @Service
 public class PayPalService {
+
+    private static final Logger logger = LoggerFactory.getLogger(PayPalService.class);
 
     private final PayPalConfig payPalConfig;
     private final RestTemplate restTemplate;
@@ -93,7 +97,29 @@ public class PayPalService {
                 String.class
         );
 
+        // --- LOGGING PAYPAL RESPONSE ---
+        // logger.info("PayPal Capture Response: {}", response.getBody()); // Rimosso log di debug
+        // -------------------------------
+
         JsonNode responseJson = objectMapper.readTree(response.getBody());
         return responseJson.get("status").asText();
+    }
+
+    public JsonNode getOrderDetails(String orderId) throws IOException {
+        String accessToken = getAccessToken();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(accessToken);
+
+        HttpEntity<String> request = new HttpEntity<>(null, headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                payPalConfig.getBaseUrl() + "/v2/checkout/orders/" + orderId,
+                HttpMethod.GET,
+                request,
+                String.class
+        );
+
+        return objectMapper.readTree(response.getBody());
     }
 }

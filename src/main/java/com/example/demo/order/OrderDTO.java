@@ -35,7 +35,11 @@ public class OrderDTO {
     private Double discount;
     private String couponCode;
     private String paymentToken; // Token di Stripe (opzionale se si usa PayPal)
-    private String paymentMethod; // NUOVO CAMPO
+    private String paymentMethod;
+    
+    // Nuovi campi per fee
+    private Double paymentFee;
+    private Double netRevenue;
 
     private String items; // JSON string
     private String shipmentPreference;

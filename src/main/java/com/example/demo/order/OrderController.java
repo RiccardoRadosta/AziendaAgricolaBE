@@ -17,10 +17,14 @@ import java.util.concurrent.ExecutionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api")
 public class OrderController {
+
+  private static final Logger logger = LoggerFactory.getLogger(OrderController.class);
 
   private final OrderService orderService;
   private final ProductService productService;
