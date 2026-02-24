@@ -62,9 +62,25 @@ L'amministratore può inviare manualmente la fattura relativa a un ordine specif
 - **Struttura Padre-Figlio**: Un acquisto genera un ordine **"padre"** (dati anagrafici e finanziari) e uno o più ordini **"figlio"** (le singole spedizioni).
 - **Separazione Spedizioni**: La logica separa automaticamente gli articoli in pre-ordine da quelli disponibili, creando spedizioni multiple se richiesto.
 - **Integrazione con Stripe**: Utilizza Stripe per elaborare i pagamenti a livello di ordine "padre".
-- **Tracciamento Metodo di Pagamento**: Ogni ordine salva il metodo di pagamento utilizzato (`card`, `paypal`, ecc.) nel campo `paymentMethod`.
+- **Tracciamento Metodo di Pagamento**: Ogni ordine salva il metodo di pagamento utilizzato (`card`, `paypal`, `klarna`) nel campo `paymentMethod`.
+- **Tracciamento Fee e Ricavi**: Per ogni ordine, il sistema recupera e salva le commissioni del gateway (`paymentFee`) e il ricavo netto (`netRevenue`) per una contabilità precisa.
 
-### 6. Impostazioni di Sistema
+### 6. Integrazione Pagamenti
+
+#### Stripe (Carta di Credito)
+- **Flusso**: Utilizza `PaymentIntents` per un'autenticazione sicura (3D Secure). I dati della carta non toccano mai il backend.
+- **Recupero Fee**: Le commissioni vengono recuperate in modo sincrono durante la creazione dell'ordine, interrogando l'API di Stripe.
+
+#### PayPal
+- **Flusso**: Utilizza le API REST di PayPal per creare e catturare l'ordine.
+- **Recupero Fee**: Le commissioni vengono recuperate in modo sincrono durante la creazione dell'ordine, interrogando l'API di PayPal.
+
+#### Klarna (via Stripe Checkout)
+- **Flusso**: Utilizza Stripe Checkout per reindirizzare l'utente alla pagina di pagamento di Klarna.
+- **Creazione Ordine**: L'ordine viene creato in modo sicuro solo dopo che il cliente torna sul sito e il backend verifica con Stripe che il pagamento sia andato a buon fine.
+- **Idempotenza**: La logica di creazione è idempotente per prevenire la creazione di ordini duplicati in caso di doppie chiamate dal frontend.
+
+### 7. Impostazioni di Sistema
 
 - **Configurazione Dinamica**: API per gestire le impostazioni chiave (es. costi di spedizione, dettagli corriere).
 - **Endpoint Pubblico e Privato**: Un endpoint pubblico per la lettura e uno protetto per la modifica.
@@ -75,13 +91,13 @@ L'amministratore può inviare manualmente la fattura relativa a un ordine specif
     - `NomeCorriere`: Nome del corriere predefinito.
     - `LinkTrackingPage`: URL base per il tracciamento delle spedizioni.
 
-### 7. Gestione della Newsletter
+### 8. Gestione della Newsletter
 
 - **Iscrizione Pubblica**: Fornisce un endpoint pubblico che permette agli utenti di iscriversi alla newsletter. 
 - **Gestione Amministrativa**: L'amministratore ha a disposizione endpoint protetti per aggiungere o rimuovere iscritti manualmente.
 - **Invio Massivo**: Funzionalità per inviare comunicazioni a tutti gli iscritti tramite Brevo.
 
-### 8. Pannello di Amministrazione
+### 9. Pannello di Amministrazione
 
 - **Dashboard**: Area riservata per monitorare lo stato dell'applicazione, gestire impostazioni e visualizzare statistiche di vendita e di Vercel Analytics.
 
@@ -91,7 +107,7 @@ Per garantire la massima performance nel pannello di amministrazione, la lista d
 
 **Requisito Fondamentale:** Questa ottimizzazione richiede un **indice composito** in Firestore. Se l'indice non esiste, la prima chiamata all'API genererà un errore `FAILED_PRECONDITION` nei log, contenente un link per creare l'indice con un click.
 
-### 9. Generazione Report Excel Avanzati
+### 10. Generazione Report Excel Avanzati
 
 Il pannello di amministrazione offre una potente funzionalità di reporting che consente di esportare un'analisi dettagliata del business in formato Excel. Questo strumento è essenziale per la contabilità, l'analisi delle vendite e il monitoraggio dell'inventario.
 
@@ -107,11 +123,11 @@ Il file Excel generato contiene tre fogli di lavoro, ciascuno progettato per off
 
 1.  **Riepilogo Mensile**:
     Fornisce una visione d'insieme delle performance finanziarie nel periodo selezionato.
-    - **Entrate Totali Nette**: La somma totale pagata dai clienti (`subtotal` dell'ordine padre).
-    - **Valore Prodotti**: Il ricavo generato dalla sola vendita dei prodotti (`Entrate Totali Nette` - `Costi di Spedizione Incassati`).
-    - **Costi di Spedizione Incassati**: La somma di tutte le spese di spedizione pagate dai clienti.
-    - **Valore Totale Sconti**: La somma di tutti gli sconti applicati a livello di ordine.
-    - Altre statistiche includono: `Numero Clienti Unici`, `Numero Ordini`, `Numero Spedizioni Generate` e `Valore Medio Ordine`.
+    - **Flusso di Cassa**: Mostra Entrate Lorde, Commissioni e Netto Incassato.
+    - **Analisi Fiscale**: Mostra Imponibile e IVA scorporata.
+    - **Dettaglio Entrate**: Suddivide le entrate tra Prodotti e Spedizioni.
+    - **Dati Operativi**: Statistiche su ordini, spedizioni e clienti.
+    - **Riepilogo per Metodo**: Tabella dettagliata per metodo di pagamento (Card, PayPal, Klarna).
 
 2.  **Vendite per Prodotto**:
     Aggrega i dati di vendita per ogni singolo prodotto, offrendo una chiara visione di quali articoli performano meglio.
@@ -122,12 +138,14 @@ Il file Excel generato contiene tre fogli di lavoro, ciascuno progettato per off
 3.  **Elenco Ordini**:
     Offre una vista granulare e dettagliata di ogni singolo articolo all'interno di ogni spedizione.
     - **Dati Anagrafici**: Include ID ordine, data, cliente ed email.
+    - **Dati Finanziari**: Metodo pagamento, Totale Lordo, Fee, Netto Reale.
     - **Dettagli Spedizione**: Mostra l'ID della spedizione (`child_...`) e il suo stato.
     - **Dettagli Articolo**: Per ogni articolo vengono mostrati:
         - **Prezzo Originale**: Il prezzo di listino (`price`).
-        - **Prezzo Finale**: Il prezzo effettivo pagato dal cliente. **Questo valore viene letto dal campo `discountPrice` se presente; in caso contrario, corrisponde al prezzo originale.** Questa logica assicura una contabilità precisa anche in presenza di promozioni specifiche sul prodotto.
+        - **Prezzo Finale**: Il prezzo effettivo pagato dal cliente.
+        - **Dati Fiscali**: Aliquota IVA, Importo IVA, Imponibile.
 
-### 10. Gestione Blog/Vlog
+### 11. Gestione Blog/Vlog
 
 Il sistema include una funzionalità completa di Blog/Vlog per la pubblicazione di articoli e contenuti editoriali.
 

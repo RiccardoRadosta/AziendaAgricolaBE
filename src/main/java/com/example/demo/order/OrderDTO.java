@@ -43,4 +43,8 @@ public class OrderDTO {
 
     private String items; // JSON string
     private String shipmentPreference;
+
+    // Campi per Klarna/Stripe Checkout
+    private String successUrl;
+    private String cancelUrl;
 }
