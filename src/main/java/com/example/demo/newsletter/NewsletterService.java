@@ -31,7 +31,7 @@ public class NewsletterService {
         this.emailService = emailService;
     }
 
-    public void subscribe(NewsletterSubscriptionDTO subscriptionDTO) {
+    public boolean subscribe(NewsletterSubscriptionDTO subscriptionDTO) {
         try {
             // Controlla se l'email è già presente nel database
             ApiFuture<QuerySnapshot> future = firestore.collection("newsletterSubscriptions")
@@ -41,30 +41,27 @@ public class NewsletterService {
 
             List<QueryDocumentSnapshot> documents = future.get().getDocuments();
 
-            // Se l'email esiste già, interrompi l'esecuzione.
-            // Il controller risponderà comunque con 200 OK, come da richiesta.
+            // Se l'email esiste già, restituisci false
             if (!documents.isEmpty()) {
-                logger.info("L'email {} è già iscritta alla newsletter. La richiesta viene ignorata.", subscriptionDTO.getEmail());
-                return;
+                logger.info("L'email {} è già iscritta alla newsletter.", subscriptionDTO.getEmail()); // RIMOSSO
+                return false;
             }
 
             // Se l'email non esiste, procedi con l'iscrizione
-            logger.info("Elaborazione nuova iscrizione per l'email: {}", subscriptionDTO.getEmail());
+            // logger.info("Elaborazione nuova iscrizione per l'email: {}", subscriptionDTO.getEmail()); // RIMOSSO
             NewsletterSubscription subscription = new NewsletterSubscription();
             subscription.setEmail(subscriptionDTO.getEmail());
             subscription.setSubscribedAt(ZonedDateTime.now());
             subscription.setId(UUID.randomUUID().toString());
 
             firestore.collection("newsletterSubscriptions").document(subscription.getId()).set(subscription);
-            logger.info("Iscrizione salvata su Firestore con ID: {}", subscription.getId());
+            // logger.info("Iscrizione salvata su Firestore con ID: {}", subscription.getId()); // RIMOSSO
+            return true;
 
         } catch (InterruptedException | ExecutionException e) {
             logger.error("Errore durante la verifica dell'iscrizione esistente per {}: {}", subscriptionDTO.getEmail(), e.getMessage());
-            // Ripristina lo stato di interruzione del thread in caso di InterruptedException
             Thread.currentThread().interrupt();
-            // In caso di errore durante il controllo, è più sicuro non procedere per evitare di creare duplicati
-            // in caso di fallimenti transitori. La richiesta di fatto non andrà a buon fine ma dal client
-            // sembrerà di si. In un'implementazione più complessa si potrebbe gestire un re-try o un errore specifico.
+            throw new RuntimeException("Errore interno durante l'iscrizione", e);
         }
     }
 

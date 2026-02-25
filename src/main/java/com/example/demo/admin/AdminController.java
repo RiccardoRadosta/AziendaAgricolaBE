@@ -181,6 +181,10 @@ public class AdminController {
             if (updates.containsKey("LinkTrackingPage")) {
                 currentSettings.setLinkTrackingPage((String) updates.get("LinkTrackingPage"));
             }
+            // Nuovo campo Newsletter Popup
+            if (updates.containsKey("newsletterPopupEnabled")) {
+                currentSettings.setNewsletterPopupEnabled((Boolean) updates.get("newsletterPopupEnabled"));
+            }
 
             settingService.saveSettings(currentSettings);
             return ResponseEntity.ok(Map.of("success", true, "message", "Settings updated successfully."));

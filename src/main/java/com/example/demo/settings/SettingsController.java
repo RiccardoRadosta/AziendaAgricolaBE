@@ -1,4 +1,3 @@
-
 package com.example.demo.settings;
 
 import org.springframework.http.HttpStatus;
@@ -42,6 +41,9 @@ public class SettingsController {
             // Impostazioni Corriere
             publicSettings.put("NomeCorriere", Optional.ofNullable(settings.getNomeCorriere()).orElse(""));
             publicSettings.put("LinkTrackingPage", Optional.ofNullable(settings.getLinkTrackingPage()).orElse(""));
+
+            // Impostazioni Newsletter
+            publicSettings.put("newsletterPopupEnabled", Optional.ofNullable(settings.getNewsletterPopupEnabled()).orElse(false));
 
             return ResponseEntity.ok(publicSettings);
         } catch (ExecutionException | InterruptedException e) {

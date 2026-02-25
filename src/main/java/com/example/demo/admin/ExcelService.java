@@ -373,12 +373,12 @@ public class ExcelService {
                                 } else {
                                     finalItemPrice = originalPrice;
                                 }
-                                
+
                                 int vatRate = 22;
                                 if (item.containsKey("vatRate") && item.get("vatRate") != null) {
                                     vatRate = ((Number) item.get("vatRate")).intValue();
                                 }
-                                
+
                                 double itemTotal = finalItemPrice * quantity;
                                 double itemVAT = itemTotal - (itemTotal / (1 + (double)vatRate / 100));
                                 double itemTaxable = itemTotal - itemVAT;

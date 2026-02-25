@@ -23,6 +23,9 @@ public class Setting {
     private String NomeCorriere;
     private String LinkTrackingPage;
 
+    // Nuovo campo per il popup newsletter
+    private Boolean newsletterPopupEnabled = false; // Default false
+
     public Setting() {
         // Costruttore vuoto necessario per la deserializzazione di Firestore
     }

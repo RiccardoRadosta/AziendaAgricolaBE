@@ -175,19 +175,29 @@ public class OrderService {
 
         BigDecimal discountAmount = BigDecimal.ZERO;
         if (orderDTO.getCouponCode() != null && !orderDTO.getCouponCode().isEmpty()) {
-            Optional<Coupon> couponOpt = couponService.verifyCoupon(orderDTO.getCouponCode());
-            if (couponOpt.isPresent()) {
-                Coupon coupon = couponOpt.get();
-                if (coupon.getDiscountType() == DiscountType.PERCENTAGE) {
-                    BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-                    discountAmount = merchandiseTotal.multiply(percentage);
-                } else { // FIXED_AMOUNT
-                    discountAmount = coupon.getDiscountValue();
+            // 1. Gestione Coupon Volatile Newsletter
+            if ("NEWSLETTER10_SESSION".equals(orderDTO.getCouponCode())) {
+                BigDecimal percentage = new BigDecimal("10").divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                discountAmount = merchandiseTotal.multiply(percentage);
+                // logger.info("Applicato sconto newsletter volatile del 10%: {}", discountAmount); // RIMOSSO
+            } 
+            // 2. Gestione Coupon Standard da DB
+            else {
+                Optional<Coupon> couponOpt = couponService.verifyCoupon(orderDTO.getCouponCode());
+                if (couponOpt.isPresent()) {
+                    Coupon coupon = couponOpt.get();
+                    if (coupon.getDiscountType() == DiscountType.PERCENTAGE) {
+                        BigDecimal percentage = coupon.getDiscountValue().divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                        discountAmount = merchandiseTotal.multiply(percentage);
+                    } else { // FIXED_AMOUNT
+                        discountAmount = coupon.getDiscountValue();
+                    }
                 }
+            }
 
-                if (discountAmount.compareTo(merchandiseTotal) > 0) {
-                    discountAmount = merchandiseTotal;
-                }
+            // Cap dello sconto: non può superare il totale merce
+            if (discountAmount.compareTo(merchandiseTotal) > 0) {
+                discountAmount = merchandiseTotal;
             }
         }
         
