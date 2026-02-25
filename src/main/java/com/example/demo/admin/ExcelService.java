@@ -273,14 +273,40 @@ public class ExcelService {
             if (children.isEmpty()) {
                 Row row = sheet.createRow(rowNum++);
                 int col = 0;
-                row.createCell(col++).setCellValue(order.getId());
-                row.createCell(col++).setCellValue(sdf.format(order.getCreatedAt().toDate()));
-                row.createCell(col++).setCellValue(order.getFullName());
-                row.createCell(col++).setCellValue(order.getEmail());
-                row.createCell(col++).setCellValue(paymentMethod);
-                row.createCell(col++).setCellValue(orderTotal);
-                row.createCell(col++).setCellValue(paymentFee);
-                row.createCell(col++).setCellValue(netRevenue);
+
+                // Applica centeredStyle a tutte le celle dell'ordine padre
+                Cell cellId = row.createCell(col++);
+                cellId.setCellValue(order.getId());
+                cellId.setCellStyle(centeredStyle);
+
+                Cell cellDate = row.createCell(col++);
+                cellDate.setCellValue(sdf.format(order.getCreatedAt().toDate()));
+                cellDate.setCellStyle(centeredStyle);
+
+                Cell cellName = row.createCell(col++);
+                cellName.setCellValue(order.getFullName());
+                cellName.setCellStyle(centeredStyle);
+
+                Cell cellEmail = row.createCell(col++);
+                cellEmail.setCellValue(order.getEmail());
+                cellEmail.setCellStyle(centeredStyle);
+
+                Cell cellMethod = row.createCell(col++);
+                cellMethod.setCellValue(paymentMethod);
+                cellMethod.setCellStyle(centeredStyle);
+
+                Cell cellTotal = row.createCell(col++);
+                cellTotal.setCellValue(orderTotal);
+                cellTotal.setCellStyle(centeredStyle);
+
+                Cell cellFee = row.createCell(col++);
+                cellFee.setCellValue(paymentFee);
+                cellFee.setCellStyle(centeredStyle);
+
+                Cell cellNet = row.createCell(col++);
+                cellNet.setCellValue(netRevenue);
+                cellNet.setCellStyle(centeredStyle);
+
             } else {
                 for (Order child : children) {
                     try {
@@ -293,19 +319,47 @@ public class ExcelService {
                             Row row = sheet.createRow(rowNum++);
                             int col = 0;
                             
-                            // Dati Ordine Padre
-                            row.createCell(col++).setCellValue(order.getId());
-                            row.createCell(col++).setCellValue(sdf.format(order.getCreatedAt().toDate()));
-                            row.createCell(col++).setCellValue(order.getFullName());
-                            row.createCell(col++).setCellValue(order.getEmail());
-                            row.createCell(col++).setCellValue(paymentMethod);
-                            row.createCell(col++).setCellValue(orderTotal);
-                            row.createCell(col++).setCellValue(paymentFee);
-                            row.createCell(col++).setCellValue(netRevenue);
+                            // Dati Ordine Padre - Applica SEMPRE centeredStyle
+                            Cell cellId = row.createCell(col++);
+                            cellId.setCellValue(order.getId());
+                            cellId.setCellStyle(centeredStyle);
+
+                            Cell cellDate = row.createCell(col++);
+                            cellDate.setCellValue(sdf.format(order.getCreatedAt().toDate()));
+                            cellDate.setCellStyle(centeredStyle);
+
+                            Cell cellName = row.createCell(col++);
+                            cellName.setCellValue(order.getFullName());
+                            cellName.setCellStyle(centeredStyle);
+
+                            Cell cellEmail = row.createCell(col++);
+                            cellEmail.setCellValue(order.getEmail());
+                            cellEmail.setCellStyle(centeredStyle);
                             
-                            // Dati Spedizione
-                            row.createCell(col++).setCellValue(child.getId());
-                            row.createCell(col++).setCellValue(convertStatus(child.getStatus()));
+                            Cell cellMethod = row.createCell(col++);
+                            cellMethod.setCellValue(paymentMethod);
+                            cellMethod.setCellStyle(centeredStyle);
+
+                            Cell cellTotal = row.createCell(col++);
+                            cellTotal.setCellValue(orderTotal);
+                            cellTotal.setCellStyle(centeredStyle);
+
+                            Cell cellFee = row.createCell(col++);
+                            cellFee.setCellValue(paymentFee);
+                            cellFee.setCellStyle(centeredStyle);
+
+                            Cell cellNet = row.createCell(col++);
+                            cellNet.setCellValue(netRevenue);
+                            cellNet.setCellStyle(centeredStyle);
+
+                            // Dati Spedizione - Applica SEMPRE centeredStyle
+                            Cell cellShipId = row.createCell(col++);
+                            cellShipId.setCellValue(child.getId());
+                            cellShipId.setCellStyle(centeredStyle);
+
+                            Cell cellShipStatus = row.createCell(col++);
+                            cellShipStatus.setCellValue(convertStatus(child.getStatus()));
+                            cellShipStatus.setCellStyle(centeredStyle);
                             
                             // Dati Articolo
                             if (!item.isEmpty()) {
@@ -320,7 +374,6 @@ public class ExcelService {
                                     finalItemPrice = originalPrice;
                                 }
                                 
-                                // Recupera vatRate
                                 int vatRate = 22;
                                 if (item.containsKey("vatRate") && item.get("vatRate") != null) {
                                     vatRate = ((Number) item.get("vatRate")).intValue();
@@ -335,7 +388,6 @@ public class ExcelService {
                                 row.createCell(col++).setCellValue(originalPrice);
                                 row.createCell(col++).setCellValue(finalItemPrice);
                                 
-                                // Nuove colonne IVA
                                 row.createCell(col++).setCellValue(vatRate + "%");
                                 row.createCell(col++).setCellValue(itemVAT);
                                 row.createCell(col++).setCellValue(itemTaxable);
@@ -347,8 +399,7 @@ public class ExcelService {
                         if (endChildRow > startChildRow) {
                             sheet.addMergedRegion(new CellRangeAddress(startChildRow, endChildRow, 8, 8));
                             sheet.addMergedRegion(new CellRangeAddress(startChildRow, endChildRow, 9, 9));
-                            sheet.getRow(startChildRow).getCell(8).setCellStyle(centeredStyle);
-                            sheet.getRow(startChildRow).getCell(9).setCellStyle(centeredStyle);
+                            // Lo stile è già settato sopra
                         }
 
                     } catch (IOException e) {
@@ -362,7 +413,7 @@ public class ExcelService {
             if (endOrderRow > startOrderRow) {
                 for (int i = 0; i <= 7; i++) {
                     sheet.addMergedRegion(new CellRangeAddress(startOrderRow, endOrderRow, i, i));
-                    sheet.getRow(startOrderRow).getCell(i).setCellStyle(centeredStyle);
+                    // Lo stile è già settato sopra
                 }
             }
         }
