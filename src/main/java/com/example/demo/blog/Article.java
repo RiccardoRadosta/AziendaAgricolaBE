@@ -20,4 +20,8 @@ public class Article {
     
     private Timestamp createdAt;
     private Timestamp publishedAt;
+
+    // Campi in Inglese
+    private String title_EN;
+    private String content_EN;
 }

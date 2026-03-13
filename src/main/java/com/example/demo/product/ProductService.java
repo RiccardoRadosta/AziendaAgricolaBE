@@ -45,21 +45,31 @@ public class ProductService {
 
     public String createProduct(ProductDTO productDTO) throws ExecutionException, InterruptedException {
         Product product = new Product();
+        // Campi IT
         product.setName(productDTO.getName());
         product.setDescription(productDTO.getDescription());
-        product.setPrice(productDTO.getPrice());
-        product.setStock(productDTO.getStock());
-        product.setImageUrls(productDTO.getImageUrls());
         product.setCategory(productDTO.getCategory());
-        product.setVisible(productDTO.isVisible());
-        product.setFeatured(productDTO.isFeatured());
-        product.setDiscountPrice(productDTO.getDiscountPrice());
-        product.setPreSaleDate(productDTO.getPreSaleDate());
         product.setIngredients(productDTO.getIngredients());
         product.setOrigin(productDTO.getOrigin());
         product.setNutrition(productDTO.getNutrition());
         
-        // Se vatRate è null, usa il default 22 (gestito nella classe Product, ma qui lo settiamo esplicitamente se presente)
+        // Campi EN
+        product.setName_EN(productDTO.getName_EN());
+        product.setDescription_EN(productDTO.getDescription_EN());
+        product.setCategory_EN(productDTO.getCategory_EN());
+        product.setIngredients_EN(productDTO.getIngredients_EN());
+        product.setOrigin_EN(productDTO.getOrigin_EN());
+        product.setNutrition_EN(productDTO.getNutrition_EN());
+
+        // Altri campi
+        product.setPrice(productDTO.getPrice());
+        product.setStock(productDTO.getStock());
+        product.setImageUrls(productDTO.getImageUrls());
+        product.setVisible(productDTO.isVisible());
+        product.setFeatured(productDTO.isFeatured());
+        product.setDiscountPrice(productDTO.getDiscountPrice());
+        product.setPreSaleDate(productDTO.getPreSaleDate());
+        
         if (productDTO.getVatRate() != null) {
             product.setVatRate(productDTO.getVatRate());
         }
@@ -72,19 +82,30 @@ public class ProductService {
         DocumentReference docRef = productsCollection.document(id);
         
         Map<String, Object> updates = new HashMap<>();
+        // Campi IT
         updates.put("name", productDTO.getName());
         updates.put("description", productDTO.getDescription());
+        updates.put("category", productDTO.getCategory());
+        updates.put("ingredients", productDTO.getIngredients());
+        updates.put("origin", productDTO.getOrigin());
+        updates.put("nutrition", productDTO.getNutrition());
+
+        // Campi EN
+        updates.put("name_EN", productDTO.getName_EN());
+        updates.put("description_EN", productDTO.getDescription_EN());
+        updates.put("category_EN", productDTO.getCategory_EN());
+        updates.put("ingredients_EN", productDTO.getIngredients_EN());
+        updates.put("origin_EN", productDTO.getOrigin_EN());
+        updates.put("nutrition_EN", productDTO.getNutrition_EN());
+
+        // Altri campi
         updates.put("price", productDTO.getPrice());
         updates.put("stock", productDTO.getStock());
         updates.put("imageUrls", productDTO.getImageUrls());
-        updates.put("category", productDTO.getCategory());
         updates.put("visible", productDTO.isVisible());
         updates.put("featured", productDTO.isFeatured());
         updates.put("discountPrice", productDTO.getDiscountPrice());
         updates.put("preSaleDate", productDTO.getPreSaleDate());
-        updates.put("ingredients", productDTO.getIngredients());
-        updates.put("origin", productDTO.getOrigin());
-        updates.put("nutrition", productDTO.getNutrition());
         
         if (productDTO.getVatRate() != null) {
             updates.put("vatRate", productDTO.getVatRate());

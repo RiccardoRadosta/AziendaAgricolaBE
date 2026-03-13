@@ -10,4 +10,8 @@ public class ArticleDTO {
     private List<String> imageUrls;
     private List<String> relatedProductIds;
     private String status; // "DRAFT", "PUBLISHED"
+
+    // Campi in Inglese
+    private String title_EN;
+    private String content_EN;
 }

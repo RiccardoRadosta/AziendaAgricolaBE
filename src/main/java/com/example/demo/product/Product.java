@@ -23,4 +23,12 @@ public class Product {
     private String origin;
     private String nutrition;
     private Integer vatRate = 22; // Default 22%
+
+    // Campi in Inglese
+    private String name_EN;
+    private String description_EN;
+    private String category_EN;
+    private String ingredients_EN;
+    private String origin_EN;
+    private String nutrition_EN;
 }

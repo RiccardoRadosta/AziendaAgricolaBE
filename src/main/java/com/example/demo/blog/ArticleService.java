@@ -67,6 +67,10 @@ public class ArticleService {
         article.setRelatedProductIds(dto.getRelatedProductIds());
         article.setStatus(dto.getStatus());
         
+        // Campi EN
+        article.setTitle_EN(dto.getTitle_EN());
+        article.setContent_EN(dto.getContent_EN());
+        
         article.setCreatedAt(Timestamp.now());
         if ("PUBLISHED".equals(dto.getStatus())) {
             article.setPublishedAt(Timestamp.now());
@@ -95,6 +99,10 @@ public class ArticleService {
         updates.put("content", dto.getContent());
         updates.put("imageUrls", dto.getImageUrls());
         updates.put("relatedProductIds", dto.getRelatedProductIds());
+        
+        // Campi EN
+        updates.put("title_EN", dto.getTitle_EN());
+        updates.put("content_EN", dto.getContent_EN());
         
         String oldStatus = doc.getString("status");
         updates.put("status", dto.getStatus());
