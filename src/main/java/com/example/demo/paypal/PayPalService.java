@@ -85,7 +85,7 @@ public class PayPalService {
 
         experienceContext.put("return_url", returnUrl);
         experienceContext.put("cancel_url", cancelUrl);
-        experienceContext.put("user_action", "PAY_NOW");
+        experienceContext.put("user_action", "CONTINUE"); // Modificato da PAY_NOW a CONTINUE
         
         paypal.set("experience_context", experienceContext);
         paymentSource.set("paypal", paypal);
