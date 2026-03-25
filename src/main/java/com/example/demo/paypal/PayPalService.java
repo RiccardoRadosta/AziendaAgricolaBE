@@ -6,10 +6,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
@@ -24,6 +26,9 @@ public class PayPalService {
     private final PayPalConfig payPalConfig;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+
+    @Value("${frontend.url}")
+    private String frontendBaseUrl;
 
     public PayPalService(PayPalConfig payPalConfig, RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.payPalConfig = payPalConfig;
@@ -57,7 +62,6 @@ public class PayPalService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(accessToken);
 
-        // Formatta il subtotal a due cifre decimali, come richiesto da PayPal
         String formattedSubtotal = new BigDecimal(subtotal).setScale(2, RoundingMode.HALF_UP).toString();
 
         ObjectNode requestBody = objectMapper.createObjectNode();
@@ -71,16 +75,54 @@ public class PayPalService {
 
         requestBody.set("purchase_units", objectMapper.createArrayNode().add(purchaseUnit));
 
+        // --- CONFIGURAZIONE CONTESTO DI ESPERIENZA ---
+        String returnUrl = frontendBaseUrl + "/paypal/return";
+        String cancelUrl = frontendBaseUrl + "/checkout?paypal=cancel";
+
+        ObjectNode experienceContext = objectMapper.createObjectNode();
+        experienceContext.put("return_url", returnUrl);
+        experienceContext.put("cancel_url", cancelUrl);
+        experienceContext.put("user_action", "PAY_NOW");
+        experienceContext.put("shipping_preference", "NO_SHIPPING"); // Riduce l'attrito su mobile
+        experienceContext.put("brand_name", "Azienda Agricola");
+        
+        // Inseriamo in application_context (root level) per compatibilità legacy/mobile
+        requestBody.set("application_context", experienceContext.deepCopy());
+
+        // Inseriamo in payment_source.paypal (V2 standard)
+        ObjectNode paymentSource = objectMapper.createObjectNode();
+        ObjectNode paypal = objectMapper.createObjectNode();
+        paypal.set("experience_context", experienceContext);
+        paymentSource.set("paypal", paypal);
+        requestBody.set("payment_source", paymentSource);
+        // ------------------------------------
+
+        logger.info("Creating PayPal order. Intent: {}, Amount: {}, Return: {}, Cancel: {}", 
+            requestBody.get("intent").asText(), 
+            formattedSubtotal,
+            returnUrl,
+            cancelUrl);
+
         HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
 
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                payPalConfig.getBaseUrl() + "/v2/checkout/orders",
-                request,
-                String.class
-        );
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    payPalConfig.getBaseUrl() + "/v2/checkout/orders",
+                    request,
+                    String.class
+            );
 
-        JsonNode responseJson = objectMapper.readTree(response.getBody());
-        return responseJson.get("id").asText();
+            JsonNode responseJson = objectMapper.readTree(response.getBody());
+            String orderId = responseJson.get("id").asText();
+            logger.info("PayPal order created successfully with ID: {}", orderId);
+            return orderId;
+        } catch (HttpClientErrorException e) {
+            logger.error("Error creating PayPal order. Status: {}, Body: {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("An unexpected error occurred while creating PayPal order: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     public String captureOrder(String orderId) throws IOException {
@@ -96,10 +138,6 @@ public class PayPalService {
                 request,
                 String.class
         );
-
-        // --- LOGGING PAYPAL RESPONSE ---
-        // logger.info("PayPal Capture Response: {}", response.getBody()); // Rimosso log di debug
-        // -------------------------------
 
         JsonNode responseJson = objectMapper.readTree(response.getBody());
         return responseJson.get("status").asText();
