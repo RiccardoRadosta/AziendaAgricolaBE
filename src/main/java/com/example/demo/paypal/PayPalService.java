@@ -75,7 +75,7 @@ public class PayPalService {
 
         requestBody.set("purchase_units", objectMapper.createArrayNode().add(purchaseUnit));
 
-        // --- EXPERIENCE CONTEXT (SOLO DENTRO PAYMENT_SOURCE) ---
+        // --- EXPERIENCE CONTEXT PULITO ---
         String returnUrl = frontendBaseUrl + "/paypal/return";
         String cancelUrl = frontendBaseUrl + "/checkout?paypal=cancel";
 
@@ -85,17 +85,15 @@ public class PayPalService {
         experienceContext.put("user_action", "PAY_NOW");
         experienceContext.put("shipping_preference", "NO_SHIPPING");
         experienceContext.put("brand_name", "Azienda Agricola");
-        // Aggiungiamo un parametro aggiuntivo per forzare il pagamento immediato
-        experienceContext.put("payment_method_preference", "IMMEDIATE_PAYMENT_REQUIRED");
 
         ObjectNode paymentSource = objectMapper.createObjectNode();
         ObjectNode paypal = objectMapper.createObjectNode();
         paypal.set("experience_context", experienceContext);
         paymentSource.set("paypal", paypal);
         requestBody.set("payment_source", paymentSource);
-        // -------------------------------------------------------
+        // ------------------------------------
 
-        logger.info("Creating PayPal order. Amount: {}, Return: {}", formattedSubtotal, returnUrl);
+        logger.info("PayPal Create: amount={}, return={}", formattedSubtotal, returnUrl);
 
         HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
 
@@ -108,13 +106,13 @@ public class PayPalService {
 
             JsonNode responseJson = objectMapper.readTree(response.getBody());
             String orderId = responseJson.get("id").asText();
-            logger.info("PayPal order created: {}", orderId);
+            logger.info("PayPal Order Created: {}", orderId);
             return orderId;
         } catch (HttpClientErrorException e) {
-            logger.error("PayPal Error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            logger.error("PayPal Create Error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw e;
         } catch (Exception e) {
-            logger.error("Unexpected error: {}", e.getMessage());
+            logger.error("PayPal Create Unexpected Error: {}", e.getMessage());
             throw e;
         }
     }
@@ -127,14 +125,25 @@ public class PayPalService {
 
         HttpEntity<String> request = new HttpEntity<>(null, headers);
 
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                payPalConfig.getBaseUrl() + "/v2/checkout/orders/" + orderId + "/capture",
-                request,
-                String.class
-        );
+        try {
+            logger.info("PayPal Capture attempting for orderId: {}", orderId);
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    payPalConfig.getBaseUrl() + "/v2/checkout/orders/" + orderId + "/capture",
+                    request,
+                    String.class
+            );
 
-        JsonNode responseJson = objectMapper.readTree(response.getBody());
-        return responseJson.get("status").asText();
+            JsonNode responseJson = objectMapper.readTree(response.getBody());
+            String status = responseJson.get("status").asText();
+            logger.info("PayPal Capture successful: {} for orderId: {}", status, orderId);
+            return status;
+        } catch (HttpClientErrorException e) {
+            logger.error("PayPal Capture Error for ID {}: {} - {}", orderId, e.getStatusCode(), e.getResponseBodyAsString());
+            throw e;
+        } catch (Exception e) {
+            logger.error("PayPal Capture Unexpected Error for ID {}: {}", orderId, e.getMessage());
+            throw e;
+        }
     }
 
     public JsonNode getOrderDetails(String orderId) throws IOException {
