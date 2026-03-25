@@ -77,21 +77,20 @@ public class PayPalService {
 
         requestBody.set("purchase_units", objectMapper.createArrayNode().add(purchaseUnit));
 
-        String returnUrl = frontendBaseUrl + "/paypal/return";
-        String cancelUrl = frontendBaseUrl + "/checkout?paypal=cancel";
+        // Sanificazione URL
+        String cleanBaseUrl = frontendBaseUrl.replaceAll("^['\"]|['\"]$", "");
+        String returnUrl = cleanBaseUrl + "/paypal/return";
+        String cancelUrl = cleanBaseUrl + "/checkout?paypal=cancel";
 
-        ObjectNode experienceContext = objectMapper.createObjectNode();
-        experienceContext.put("return_url", returnUrl);
-        experienceContext.put("cancel_url", cancelUrl);
-        experienceContext.put("user_action", "PAY_NOW");
-        experienceContext.put("shipping_preference", "NO_SHIPPING");
-        experienceContext.put("brand_name", "Azienda Agricola");
-
-        ObjectNode paymentSource = objectMapper.createObjectNode();
-        ObjectNode paypal = objectMapper.createObjectNode();
-        paypal.set("experience_context", experienceContext);
-        paymentSource.set("paypal", paypal);
-        requestBody.set("payment_source", paymentSource);
+        // Usiamo application_context a livello radice: è il modo più affidabile per ottenere l'approveUrl per il redirect
+        ObjectNode appContext = objectMapper.createObjectNode();
+        appContext.put("return_url", returnUrl);
+        appContext.put("cancel_url", cancelUrl);
+        appContext.put("user_action", "PAY_NOW");
+        appContext.put("shipping_preference", "NO_SHIPPING");
+        appContext.put("brand_name", "Azienda Agricola");
+        
+        requestBody.set("application_context", appContext);
 
         logger.info("PayPal Create Order: amount={}, return={}", formattedSubtotal, returnUrl);
 
@@ -110,7 +109,18 @@ public class PayPalService {
             String approveUrl = "";
             if (responseJson.has("links")) {
                 for (JsonNode link : responseJson.get("links")) {
-                    if ("approve".equals(link.get("rel").asText())) {
+                    String rel = link.get("rel").asText();
+                    if ("approve".equals(rel) || "payer-action".equals(rel)) {
+                        approveUrl = link.get("href").asText();
+                        break;
+                    }
+                }
+            }
+
+            // Fallback: se non trova 'approve', cerca il link 'checkoutnow' (comune in alcuni flussi)
+            if (approveUrl.isEmpty() && responseJson.has("links")) {
+                for (JsonNode link : responseJson.get("links")) {
+                    if (link.get("href").asText().contains("checkoutnow")) {
                         approveUrl = link.get("href").asText();
                         break;
                     }
