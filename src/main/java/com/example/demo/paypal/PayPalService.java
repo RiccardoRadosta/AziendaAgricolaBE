@@ -75,7 +75,7 @@ public class PayPalService {
 
         requestBody.set("purchase_units", objectMapper.createArrayNode().add(purchaseUnit));
 
-        // --- CONFIGURAZIONE CONTESTO DI ESPERIENZA ---
+        // --- EXPERIENCE CONTEXT (SOLO DENTRO PAYMENT_SOURCE) ---
         String returnUrl = frontendBaseUrl + "/paypal/return";
         String cancelUrl = frontendBaseUrl + "/checkout?paypal=cancel";
 
@@ -83,25 +83,17 @@ public class PayPalService {
         experienceContext.put("return_url", returnUrl);
         experienceContext.put("cancel_url", cancelUrl);
         experienceContext.put("user_action", "PAY_NOW");
-        experienceContext.put("shipping_preference", "NO_SHIPPING"); // Riduce l'attrito su mobile
+        experienceContext.put("shipping_preference", "NO_SHIPPING");
         experienceContext.put("brand_name", "Azienda Agricola");
-        
-        // Inseriamo in application_context (root level) per compatibilità legacy/mobile
-        requestBody.set("application_context", experienceContext.deepCopy());
 
-        // Inseriamo in payment_source.paypal (V2 standard)
         ObjectNode paymentSource = objectMapper.createObjectNode();
         ObjectNode paypal = objectMapper.createObjectNode();
         paypal.set("experience_context", experienceContext);
         paymentSource.set("paypal", paypal);
         requestBody.set("payment_source", paymentSource);
-        // ------------------------------------
+        // -------------------------------------------------------
 
-        logger.info("Creating PayPal order. Intent: {}, Amount: {}, Return: {}, Cancel: {}", 
-            requestBody.get("intent").asText(), 
-            formattedSubtotal,
-            returnUrl,
-            cancelUrl);
+        logger.info("Creating PayPal order. Amount: {}, Return: {}", formattedSubtotal, returnUrl);
 
         HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
 
@@ -114,13 +106,13 @@ public class PayPalService {
 
             JsonNode responseJson = objectMapper.readTree(response.getBody());
             String orderId = responseJson.get("id").asText();
-            logger.info("PayPal order created successfully with ID: {}", orderId);
+            logger.info("PayPal order created: {}", orderId);
             return orderId;
         } catch (HttpClientErrorException e) {
-            logger.error("Error creating PayPal order. Status: {}, Body: {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            logger.error("PayPal Error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw e;
         } catch (Exception e) {
-            logger.error("An unexpected error occurred while creating PayPal order: {}", e.getMessage(), e);
+            logger.error("Unexpected error: {}", e.getMessage());
             throw e;
         }
     }
