@@ -85,6 +85,8 @@ public class PayPalService {
         experienceContext.put("user_action", "PAY_NOW");
         experienceContext.put("shipping_preference", "NO_SHIPPING");
         experienceContext.put("brand_name", "Azienda Agricola");
+        // Aggiungiamo un parametro aggiuntivo per forzare il pagamento immediato
+        experienceContext.put("payment_method_preference", "IMMEDIATE_PAYMENT_REQUIRED");
 
         ObjectNode paymentSource = objectMapper.createObjectNode();
         ObjectNode paypal = objectMapper.createObjectNode();
