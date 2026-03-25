@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/paypal") // <-- MODIFICATO
+@RequestMapping("/api/paypal")
 public class PayPalController {
 
     private final PayPalService payPalService;
@@ -24,7 +24,6 @@ public class PayPalController {
     @PostMapping("/create-order")
     public ResponseEntity<?> createOrder(@RequestBody OrderDTO orderDTO) {
         try {
-            // --- VERIFICA DI SICUREZZA SUL TOTALE ---
             double serverTotal = orderService.calculateOrderTotal(orderDTO);
             double clientTotal = orderDTO.getSubtotal();
 
@@ -33,12 +32,10 @@ public class PayPalController {
                 response.put("error", "Order total mismatch. Client: " + clientTotal + ", Server: " + serverTotal);
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
             }
-            // --- FINE VERIFICA ---
 
-            String orderId = payPalService.createOrder(serverTotal); // Usa il totale calcolato dal server
-            Map<String, String> response = new HashMap<>();
-            response.put("orderId", orderId);
-            return ResponseEntity.ok(response);
+            // Cambiato per ricevere la mappa con orderId e approveUrl
+            Map<String, String> payPalData = payPalService.createOrder(serverTotal);
+            return ResponseEntity.ok(payPalData);
 
         } catch (Exception e) {
             e.printStackTrace();

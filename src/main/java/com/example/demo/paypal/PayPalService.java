@@ -17,6 +17,8 @@ import org.springframework.web.client.RestTemplate;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class PayPalService {
@@ -56,7 +58,7 @@ public class PayPalService {
         return responseJson.get("access_token").asText();
     }
 
-    public String createOrder(double subtotal) throws IOException {
+    public Map<String, String> createOrder(double subtotal) throws IOException {
         String accessToken = getAccessToken();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -75,7 +77,6 @@ public class PayPalService {
 
         requestBody.set("purchase_units", objectMapper.createArrayNode().add(purchaseUnit));
 
-        // --- EXPERIENCE CONTEXT PULITO ---
         String returnUrl = frontendBaseUrl + "/paypal/return";
         String cancelUrl = frontendBaseUrl + "/checkout?paypal=cancel";
 
@@ -91,9 +92,8 @@ public class PayPalService {
         paypal.set("experience_context", experienceContext);
         paymentSource.set("paypal", paypal);
         requestBody.set("payment_source", paymentSource);
-        // ------------------------------------
 
-        logger.info("PayPal Create: amount={}, return={}", formattedSubtotal, returnUrl);
+        logger.info("PayPal Create Order: amount={}, return={}", formattedSubtotal, returnUrl);
 
         HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
 
@@ -106,8 +106,24 @@ public class PayPalService {
 
             JsonNode responseJson = objectMapper.readTree(response.getBody());
             String orderId = responseJson.get("id").asText();
-            logger.info("PayPal Order Created: {}", orderId);
-            return orderId;
+            
+            String approveUrl = "";
+            if (responseJson.has("links")) {
+                for (JsonNode link : responseJson.get("links")) {
+                    if ("approve".equals(link.get("rel").asText())) {
+                        approveUrl = link.get("href").asText();
+                        break;
+                    }
+                }
+            }
+
+            logger.info("PayPal Order Created: ID={}, approveUrl={}", orderId, approveUrl);
+            
+            Map<String, String> result = new HashMap<>();
+            result.put("orderId", orderId);
+            result.put("approveUrl", approveUrl);
+            return result;
+            
         } catch (HttpClientErrorException e) {
             logger.error("PayPal Create Error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw e;
