@@ -80,7 +80,18 @@ L'amministratore può inviare manualmente la fattura relativa a un ordine specif
 - **Creazione Ordine**: L'ordine viene creato in modo sicuro solo dopo che il cliente torna sul sito e il backend verifica con Stripe che il pagamento sia andato a buon fine.
 - **Idempotenza**: La logica di creazione è idempotente per prevenire la creazione di ordini duplicati in caso di doppie chiamate dal frontend.
 
-### 7. Impostazioni di Sistema
+### 7. Bundle Commerciali (Upsell)
+
+Il sistema include una gestione avanzata di bundle promozionali per aumentare il valore medio del carrello (AOV).
+
+- **CRUD Admin**: API protette per la gestione completa dei bundle (`/api/admin/bundles`).
+- **Logica Trigger**: Ogni bundle è associato a una lista di `triggerProductIds`. Quando uno di questi prodotti viene aggiunto al carrello, il frontend propone il bundle.
+- **Sconti Flessibili**: Supporta sconti di tipo `PERCENTAGE` o `FIXED_AMOUNT`.
+- **Validità Temporale**: Ogni bundle può avere una finestra di attivazione (`validFrom`, `validTo`).
+- **Priorità e Display**: Gestione della priorità di visualizzazione e modalità di visualizzazione (`modal` o `inline`).
+- **Endpoint Pubblico**: `GET /api/bundles/active` restituisce solo i bundle attivi, validi temporalmente e ordinati per priorità.
+
+### 8. Impostazioni di Sistema
 
 - **Configurazione Dinamica**: API per gestire le impostazioni chiave (es. costi di spedizione, dettagli corriere).
 - **Endpoint Pubblico e Privato**: Un endpoint pubblico per la lettura e uno protetto per la modifica.
@@ -91,13 +102,13 @@ L'amministratore può inviare manualmente la fattura relativa a un ordine specif
     - `NomeCorriere`: Nome del corriere predefinito.
     - `LinkTrackingPage`: URL base per il tracciamento delle spedizioni.
 
-### 8. Gestione della Newsletter
+### 9. Gestione della Newsletter
 
 - **Iscrizione Pubblica**: Fornisce un endpoint pubblico che permette agli utenti di iscriversi alla newsletter. 
 - **Gestione Amministrativa**: L'amministratore ha a disposizione endpoint protetti per aggiungere o rimuovere iscritti manualmente.
 - **Invio Massivo**: Funzionalità per inviare comunicazioni a tutti gli iscritti tramite Brevo.
 
-### 9. Pannello di Amministrazione
+### 10. Pannello di Amministrazione
 
 - **Dashboard**: Area riservata per monitorare lo stato dell'applicazione, gestire impostazioni e visualizzare statistiche di vendita e di Vercel Analytics.
 
@@ -107,7 +118,7 @@ Per garantire la massima performance nel pannello di amministrazione, la lista d
 
 **Requisito Fondamentale:** Questa ottimizzazione richiede un **indice composito** in Firestore. Se l'indice non esiste, la prima chiamata all'API genererà un errore `FAILED_PRECONDITION` nei log, contenente un link per creare l'indice con un click.
 
-### 10. Generazione Report Excel Avanzati
+### 11. Generazione Report Excel Avanzati
 
 Il pannello di amministrazione offre una potente funzionalità di reporting che consente di esportare un'analisi dettagliata del business in formato Excel. Questo strumento è essenziale per la contabilità, l'analisi delle vendite e il monitoraggio dell'inventario.
 
@@ -145,7 +156,7 @@ Il file Excel generato contiene tre fogli di lavoro, ciascuno progettato per off
         - **Prezzo Finale**: Il prezzo effettivo pagato dal cliente.
         - **Dati Fiscali**: Aliquota IVA, Importo IVA, Imponibile.
 
-### 11. Gestione Blog/Vlog
+### 12. Gestione Blog/Vlog
 
 Il sistema include una funzionalità completa di Blog/Vlog per la pubblicazione di articoli e contenuti editoriali.
 
